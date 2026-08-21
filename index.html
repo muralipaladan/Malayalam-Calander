@@ -29,11 +29,13 @@
     .day-cell { border: 1px solid #e2e8f0; border-radius: 8px; min-height: 54px; display: flex; flex-direction: column; justify-content: space-between; padding: 4px 2px; text-align: center; cursor: pointer; font-size: 11px; position: relative; background: #fff; }
     .day-cell.selected { border: 2px solid #b91c1c; background: #fef2f2; font-weight: bold; }
     .day-cell.today-cell { background: #fff7ed; border-color: #f97316; }
+    .day-cell.bday-cell { background: #fdf2f8; border-color: #ec4899; }
     .day-cell.other-month { opacity: 0.25; }
     .day-num { font-size: 14px; font-weight: 600; }
     .mal-num { font-size: 10px; color: #7c2d12; font-weight: bold; }
     .star-name { font-size: 9px; color: #475569; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
     .dot-badge { width: 5px; height: 5px; background: #b91c1c; border-radius: 50%; position: absolute; top: 3px; right: 3px; }
+    .bday-icon { position: absolute; top: 2px; left: 2px; font-size: 10px; }
 
     .details-panel { border-top: 2px solid #f1f5f9; padding: 16px; }
     .panchangam-box { background: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; padding: 10px; margin-bottom: 12px; font-size: 13px; line-height: 1.5; }
@@ -49,6 +51,7 @@
     .btn-main { background: #b91c1c; color: white; font-weight: 600; border: none; margin-top: 6px; cursor: pointer; }
     .file-chip { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 6px 10px; border-radius: 6px; margin-top: 6px; font-size: 12px; }
     .rem-item { display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-left: 3px solid #b91c1c; padding: 6px 8px; margin-top: 4px; font-size: 12px; }
+    .bday-item { background: #fdf2f8; border-left: 3px solid #db2777; color: #831843; font-weight: 600; padding: 7px 8px; margin-top: 4px; border-radius: 4px; font-size: 12px; }
     .del-btn { color: #dc2626; cursor: pointer; font-weight: bold; border: none; background: transparent; width: auto; }
   </style>
 </head>
@@ -87,9 +90,10 @@
       <button class="btn-export btn-export-year" onclick="exportCurrentYearICS()">📅 ഈ വർഷം മുഴുവൻ Export (.ics)</button>
     </div>
 
-    <div class="section-title">റീമൈൻഡറുകൾ / ടാസ്കുകൾ</div>
-    <div style="display: flex; gap: 6px;">
-      <input type="text" id="remInput" placeholder="റീമൈൻഡർ ടൈപ്പ് ചെയ്യുക...">
+    <div class="section-title">റീമൈൻഡറുകൾ & ജന്മദിനങ്ങൾ</div>
+    <div id="permanentBdayList"></div>
+    <div style="display: flex; gap: 6px; margin-top: 6px;">
+      <input type="text" id="remInput" placeholder="മറ്റ് റീമൈൻഡറുകൾ ടൈപ്പ് ചെയ്യുക...">
       <button class="btn-main" style="width: 70px; margin-top:0;" onclick="addReminder()">Add</button>
     </div>
     <div id="reminderList"></div>
@@ -105,6 +109,17 @@
 </div>
 
 <script>
+  // Permanent Recurring Birthdays (Month is 1-12, Day is 1-31)
+  const permanentBirthdays = [
+    { name: "Muraleedharan", birthYear: 1968, month: 4, day: 1 },
+    { name: "Sini", birthYear: 1972, month: 8, day: 12 },
+    { name: "Aiswarya", birthYear: 1996, month: 9, day: 11 },
+    { name: "Vishnu", birthYear: 1995, month: 7, day: 17 },
+    { name: "Sivasri", birthYear: 1998, month: 9, day: 10 },
+    { name: "Abijith", birthYear: 2002, month: 5, day: 30 },
+    { name: "Sivashree", birthYear: 2021, month: 10, day: 21 }
+  ];
+
   const stars = ["അശ്വതി","ഭരണി","കാർത്തിക","രോഹിണി","മകയിരം","തിരുവാതിര","പുണർതം","പൂയം","ആയില്യം","മകം","പൂരം","ഉത്രം","അത്തം","ചിത്തിര","ചോതി","വിശാഖം","അനിഴം","തൃക്കേട്ട","മൂലം","പൂരാടം","ഉത്രാടം","തിരുവോണം","അവിട്ടം","ചതയം","പൂരുരുട്ടാതി","ഉത്രട്ടാതി","രേവതി"];
   const malMonths = ["മേടം","ഇടവം","മിഥുനം","കർക്കടകം","ചിങ്ങം","കന്നി","തുലാം","വൃശ്ചികം","ധനു","മകരം","കുംഭം","മീനം"];
   const engMonths = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -127,13 +142,23 @@
     loadDateData(selectedDateStr);
   };
 
+  function getBirthdaysForDate(year, month, day) {
+    return permanentBirthdays.filter(b => b.month === month && b.day === day).map(b => {
+      const age = year - b.birthYear;
+      return {
+        ...b,
+        age: age >= 0 ? age : null,
+        text: `🎂 ${b.name}'s Birthday (${b.birthYear}) - ${age >= 0 ? age + ' വയസ്സ്' : ''}`
+      };
+    });
+  }
+
   function initDropdowns() {
     const mSelect = document.getElementById('monthSelect');
     const ySelect = document.getElementById('yearSelect');
     
     mSelect.innerHTML = engMonths.map((m, i) => `<option value="${i}">${m}</option>`).join('');
     
-    // 1950 മുതൽ 2060 വരെയുള്ള വർഷങ്ങൾ
     let yOptions = '';
     for(let y = 1950; y <= 2060; y++) {
       yOptions += `<option value="${y}">${y}</option>`;
@@ -321,12 +346,18 @@
       const malInfo = getMalayalamInfo(d);
       const cell = document.createElement('div');
 
+      const bdays = getBirthdaysForDate(year, month + 1, day);
       const isToday = dStr === todayStr ? 'today-cell' : '';
       const isSel = dStr === selectedDateStr ? 'selected' : '';
+      const isBday = bdays.length > 0 ? 'bday-cell' : '';
 
-      cell.className = `day-cell ${isSel} ${isToday}`;
+      cell.className = `day-cell ${isSel} ${isToday} ${isBday}`;
       cell.id = `cell-${dStr}`;
+      
+      let bdayIconHtml = bdays.length > 0 ? `<span class="bday-icon">🎂</span>` : '';
+
       cell.innerHTML = `
+        ${bdayIconHtml}
         <div class="day-num">${day}</div>
         <div class="mal-num">${malInfo.malDate}</div>
         <div class="star-name">${malInfo.star}</div>
@@ -362,6 +393,15 @@
       മലയാള തീയതി: <strong>${m.kollavarsham} ${m.malMonth} ${m.malDate}</strong><br>
       നക്ഷത്രം: <strong>${m.star}</strong>
     `;
+
+    // Render Permanent Birthdays for this day
+    const bdays = getBirthdaysForDate(d.getFullYear(), d.getMonth() + 1, d.getDate());
+    const bdayCont = document.getElementById('permanentBdayList');
+    if(bdays.length > 0) {
+      bdayCont.innerHTML = bdays.map(b => `<div class="bday-item">${b.text}</div>`).join('');
+    } else {
+      bdayCont.innerHTML = '';
+    }
 
     const tx = db.transaction("entries", "readonly");
     const req = tx.objectStore("entries").get(dStr);
@@ -459,14 +499,17 @@
 
   function checkDot(dStr) {
     if (!db) return;
+    const d = dateFromString(dStr);
+    const bdays = getBirthdaysForDate(d.getFullYear(), d.getMonth() + 1, d.getDate());
+    
     const tx = db.transaction("entries", "readonly");
     const req = tx.objectStore("entries").get(dStr);
     req.onsuccess = () => {
-      const d = req.result;
+      const data = req.result;
       const dot = document.getElementById(`dot-${dStr}`);
       if (dot) {
-        const hasContent = d && (d.notes || (d.reminders && d.reminders.length) || (d.files && d.files.length));
-        dot.style.display = hasContent ? 'block' : 'none';
+        const hasUserContent = data && (data.notes || (data.reminders && data.reminders.length) || (data.files && data.files.length));
+        dot.style.display = (hasUserContent || bdays.length > 0) ? 'block' : 'none';
       }
     };
   }
@@ -486,9 +529,15 @@
       const d = new Date(year, month, day);
       const dStr = localDateString(d);
       const mInfo = getMalayalamInfo(d);
+      const bdays = getBirthdaysForDate(year, month + 1, day);
+      
       let desc = `കൊല്ലവർഷം: ${mInfo.kollavarsham} ${mInfo.malMonth} ${mInfo.malDate}\\nനക്ഷത്രം: ${mInfo.star}`;
-      const entry = entryMap[dStr];
+      
+      if(bdays.length > 0) {
+        desc += `\\n🎂 ജന്മദിനങ്ങൾ: ${bdays.map(b => b.name + ' (' + b.birthYear + ')').join(', ')}`;
+      }
 
+      const entry = entryMap[dStr];
       if (entry?.notes) desc += `\\nകുറിപ്പ്: ${entry.notes.replace(/\n/g, '\\n')}`;
       if (entry?.reminders?.length) desc += `\\nറീമൈൻഡറുകൾ: ${entry.reminders.join(', ')}`;
 
@@ -496,11 +545,16 @@
       const isoStart = dateICS(d);
       const isoEnd = dateICS(nextDate);
 
+      let summary = `${mInfo.malMonth} ${mInfo.malDate} - ${mInfo.star}`;
+      if (bdays.length > 0) {
+        summary = `🎂 ${bdays.map(b => b.name).join(', ')} Birthday | ` + summary;
+      }
+
       icsContent += "BEGIN:VEVENT\n";
       icsContent += `UID:malcal-${dStr}@pwa.local\n`;
       icsContent += `DTSTART;VALUE=DATE:${isoStart}\n`;
       icsContent += `DTEND;VALUE=DATE:${isoEnd}\n`;
-      icsContent += `SUMMARY:${mInfo.malMonth} ${mInfo.malDate} - ${mInfo.star}\n`;
+      icsContent += `SUMMARY:${icsEscape(summary)}\n`;
       icsContent += `DESCRIPTION:${icsEscape(desc)}\n`;
       icsContent += "END:VEVENT\n";
     }
@@ -523,18 +577,28 @@
         const date = new Date(year, m, d);
         const dStr = localDateString(date);
         const mInfo = getMalayalamInfo(date);
+        const bdays = getBirthdaysForDate(year, m + 1, d);
         const nextDate = new Date(year, m, d + 1);
 
         let desc = `കൊല്ലവർഷം: ${mInfo.kollavarsham} ${mInfo.malMonth} ${mInfo.malDate}\\nനക്ഷത്രം: ${mInfo.star}`;
+        if(bdays.length > 0) {
+          desc += `\\n🎂 ജന്മദിനങ്ങൾ: ${bdays.map(b => b.name + ' (' + b.birthYear + ')').join(', ')}`;
+        }
+
         const entry = entryMap[dStr];
         if (entry?.notes) desc += `\\nകുറിപ്പ്: ${entry.notes.replace(/\n/g, '\\n')}`;
         if (entry?.reminders?.length) desc += `\\nറീമൈൻഡറുകൾ: ${entry.reminders.join(', ')}`;
+
+        let summary = `${mInfo.malMonth} ${mInfo.malDate} - ${mInfo.star}`;
+        if (bdays.length > 0) {
+          summary = `🎂 ${bdays.map(b => b.name).join(', ')} Birthday | ` + summary;
+        }
 
         icsContent += "BEGIN:VEVENT\n";
         icsContent += `UID:malcal-${dStr}@pwa.local\n`;
         icsContent += `DTSTART;VALUE=DATE:${dateICS(date)}\n`;
         icsContent += `DTEND;VALUE=DATE:${dateICS(nextDate)}\n`;
-        icsContent += `SUMMARY:${icsEscape(mInfo.malMonth + ' ' + mInfo.malDate + ' - ' + mInfo.star)}\n`;
+        icsContent += `SUMMARY:${icsEscape(summary)}\n`;
         icsContent += `DESCRIPTION:${icsEscape(desc)}\n`;
         icsContent += "END:VEVENT\n";
       }
