@@ -99,6 +99,13 @@
   const CAL_LON=76.2155041702179;
   const CAL_TZ='Asia/Kolkata';
 
+  // Google Cloud Console -> Google Auth Platform -> Clients
+  // Create a Web application OAuth Client ID and paste it here.
+  const GOOGLE_CLIENT_ID='YOUR_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com';
+  const GOOGLE_SCOPE='https://www.googleapis.com/auth/calendar.readonly';
+  let googleTokenClient=null;
+  let googleAccessToken=null;
+
   const request = indexedDB.open("MalayalamCalendarDB", 1);
   request.onupgradeneeded = e => {
     db = e.target.result;
@@ -517,6 +524,129 @@
     if(entry?.reminders?.length) desc+=`\\nറീമൈൻഡറുകൾ: ${entry.reminders.join(', ')}`;
 
     return `BEGIN:VEVENT\nUID:malcal-${localDateString(d)}@pwa.local\nDTSTART;VALUE=DATE:${dateICS(d)}\nDTEND;VALUE=DATE:${dateICS(next)}\nSUMMARY:${icsEscape(m.malMonth+' '+m.malDate+' - '+m.star)}\nDESCRIPTION:${icsEscape(desc)}\nEND:VEVENT\n`;
+  }
+
+
+  function setGoogleStatus(message, ok=false, error=false) {
+    const el=document.getElementById('googleStatus');
+    el.textContent=message;
+    el.className='info '+(ok?'google-ok':error?'google-error':'');
+  }
+
+  function googleLogin() {
+    if(!window.google?.accounts?.oauth2) {
+      setGoogleStatus('Google Identity Services load ആയിട്ടില്ല. Internet connection പരിശോധിക്കുക.',false,true);
+      return;
+    }
+
+    if(GOOGLE_CLIENT_ID.startsWith('YOUR_')) {
+      setGoogleStatus('ആദ്യം GOOGLE_CLIENT_ID code-ൽ നിങ്ങളുടെ Google OAuth Client ID ആയി മാറ്റണം.',false,true);
+      return;
+    }
+
+    googleTokenClient=google.accounts.oauth2.initTokenClient({
+      client_id:GOOGLE_CLIENT_ID,
+      scope:GOOGLE_SCOPE,
+      callback:(response)=>{
+        if(response.error) {
+          setGoogleStatus('Google authorization പരാജയപ്പെട്ടു.',false,true);
+          return;
+        }
+        googleAccessToken=response.access_token;
+        document.getElementById('googleLoginBtn').style.display='none';
+        document.getElementById('googleLogoutBtn').style.display='block';
+        document.getElementById('googleImportBtn').style.display='block';
+        setGoogleStatus('Google Calendar connected. ഇനി Import അമർത്താം.',true);
+      }
+    });
+
+    googleTokenClient.requestAccessToken({prompt:'consent'});
+  }
+
+  function googleLogout() {
+    if(googleAccessToken && window.google?.accounts?.oauth2) {
+      google.accounts.oauth2.revoke(googleAccessToken,()=>{});
+    }
+    googleAccessToken=null;
+    document.getElementById('googleLoginBtn').style.display='block';
+    document.getElementById('googleLogoutBtn').style.display='none';
+    document.getElementById('googleImportBtn').style.display='none';
+    setGoogleStatus('Google Calendar ബന്ധിപ്പിച്ചിട്ടില്ല.');
+  }
+
+  async function googleApi(path, params={}) {
+    if(!googleAccessToken) throw new Error('Google Calendar login required');
+    const url=new URL('https://www.googleapis.com/calendar/v3/'+path);
+    Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,v));
+    const res=await fetch(url,{headers:{Authorization:'Bearer '+googleAccessToken}});
+    if(res.status===401) {
+      googleAccessToken=null;
+      throw new Error('Google access token expired. വീണ്ടും Login ചെയ്യുക.');
+    }
+    if(!res.ok) throw new Error(await res.text());
+    return res.json();
+  }
+
+  async function importGoogleCalendar() {
+    try {
+      setGoogleStatus('Google Calendar events വായിക്കുന്നു...');
+      const calendars=await googleApi('users/me/calendarList',{maxResults:250});
+
+      let imported=0;
+      for(const cal of (calendars.items||[])) {
+        const data=await googleApi(`calendars/${encodeURIComponent(cal.id)}/events`,{
+          singleEvents:'true',
+          orderBy:'startTime',
+          maxResults:'2500',
+          timeMin:'2000-01-01T00:00:00+05:30',
+          timeMax:'2100-01-01T00:00:00+05:30'
+        });
+
+        for(const event of (data.items||[])) {
+          const start=event.start?.date || (event.start?.dateTime ? event.start.dateTime.slice(0,10) : null);
+          if(!start) continue;
+
+          const tx=db.transaction('entries','readwrite');
+          const store=tx.objectStore('entries');
+
+          await new Promise((resolve,reject)=>{
+            const req=store.get(start);
+            req.onsuccess=()=>{
+              const old=req.result||{date:start,notes:'',reminders:[],files:[]};
+              old.googleEvents=old.googleEvents||[];
+
+              const item={
+                id:event.id,
+                calendarId:cal.id,
+                calendarName:cal.summary||'Google Calendar',
+                summary:event.summary||'(No title)',
+                description:event.description||'',
+                location:event.location||'',
+                start:event.start,
+                end:event.end,
+                htmlLink:event.htmlLink||''
+              };
+
+              const idx=old.googleEvents.findIndex(x=>x.id===item.id && x.calendarId===item.calendarId);
+              if(idx>=0) old.googleEvents[idx]=item;
+              else old.googleEvents.push(item);
+
+              const put=store.put(old);
+              put.onsuccess=()=>{imported++;resolve()};
+              put.onerror=()=>reject(put.error);
+            };
+            req.onerror=()=>reject(req.error);
+          });
+        }
+      }
+
+      renderCalendar();
+      loadDateData(selectedDateStr);
+      setGoogleStatus(`${imported} Google Calendar event(s) local calendar-ലേക്ക് import ചെയ്തു.`,true);
+    } catch(err) {
+      console.error(err);
+      setGoogleStatus('Google Calendar import പരാജയപ്പെട്ടു: '+err.message,false,true);
+    }
   }
 
   if ('serviceWorker' in navigator) {
