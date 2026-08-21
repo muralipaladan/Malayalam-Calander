@@ -10,9 +10,17 @@
     body { background: #f8fafc; color: #1e293b; padding: 12px; }
     .container { max-width: 480px; margin: auto; background: #fff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); overflow: hidden; }
     header { background: #b91c1c; color: white; padding: 16px; text-align: center; }
-    .nav-btn { background: rgba(255,255,255,0.2); border: none; color: white; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; }
-    .month-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-    .kerala-date-head { font-size: 13px; opacity: 0.9; }
+    .nav-btn { background: rgba(255,255,255,0.2); border: none; color: white; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: bold; }
+    
+    .nav-controls { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 8px; }
+    .select-group { display: flex; gap: 4px; flex: 1; justify-content: center; }
+    .select-group select { background: white; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 6px; padding: 4px 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    
+    .jump-bar { display: flex; gap: 6px; justify-content: center; align-items: center; margin-top: 6px; background: rgba(0,0,0,0.15); padding: 6px 8px; border-radius: 6px; }
+    .jump-bar input[type="date"] { background: white; border: none; border-radius: 4px; padding: 3px 6px; font-size: 12px; color: #1e293b; width: auto; }
+    .today-btn { background: #fff; color: #b91c1c; font-weight: 700; border: none; padding: 4px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; }
+
+    .kerala-date-head { font-size: 13px; opacity: 0.95; margin-top: 4px; font-weight: 500; }
     
     .weekdays { display: grid; grid-template-columns: repeat(7, 1fr); background: #f1f5f9; text-align: center; font-weight: bold; font-size: 12px; padding: 8px 0; }
     .weekdays div:first-child { color: #dc2626; }
@@ -20,6 +28,7 @@
     .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; padding: 8px; }
     .day-cell { border: 1px solid #e2e8f0; border-radius: 8px; min-height: 54px; display: flex; flex-direction: column; justify-content: space-between; padding: 4px 2px; text-align: center; cursor: pointer; font-size: 11px; position: relative; background: #fff; }
     .day-cell.selected { border: 2px solid #b91c1c; background: #fef2f2; font-weight: bold; }
+    .day-cell.today-cell { background: #fff7ed; border-color: #f97316; }
     .day-cell.other-month { opacity: 0.25; }
     .day-num { font-size: 14px; font-weight: 600; }
     .mal-num { font-size: 10px; color: #7c2d12; font-weight: bold; }
@@ -47,14 +56,21 @@
 
 <div class="container">
   <header>
-    <div class="month-header">
+    <div class="nav-controls">
       <button class="nav-btn" onclick="changeMonth(-1)">❮</button>
-      <div>
-        <h2 id="engMonthYear"></h2>
-        <div class="kerala-date-head" id="malMonthYear"></div>
+      <div class="select-group">
+        <select id="monthSelect" onchange="onSelectChange()"></select>
+        <select id="yearSelect" onchange="onSelectChange()"></select>
       </div>
       <button class="nav-btn" onclick="changeMonth(1)">❯</button>
     </div>
+
+    <div class="jump-bar">
+      <input type="date" id="quickDatePicker" onchange="onQuickDateSelect(this.value)">
+      <button class="today-btn" onclick="goToToday()">ഇന്ന് (Today)</button>
+    </div>
+
+    <div class="kerala-date-head" id="malMonthYear"></div>
   </header>
 
   <div class="weekdays">
@@ -91,6 +107,7 @@
 <script>
   const stars = ["അശ്വതി","ഭരണി","കാർത്തിക","രോഹിണി","മകയിരം","തിരുവാതിര","പുണർതം","പൂയം","ആയില്യം","മകം","പൂരം","ഉത്രം","അത്തം","ചിത്തിര","ചോതി","വിശാഖം","അനിഴം","തൃക്കേട്ട","മൂലം","പൂരാടം","ഉത്രാടം","തിരുവോണം","അവിട്ടം","ചതയം","പൂരുരുട്ടാതി","ഉത്രട്ടാതി","രേവതി"];
   const malMonths = ["മേടം","ഇടവം","മിഥുനം","കർക്കടകം","ചിങ്ങം","കന്നി","തുലാം","വൃശ്ചികം","ധനു","മകരം","കുംഭം","മീനം"];
+  const engMonths = ["January","February","March","April","May","June","July","August","September","October","November","December"];
   
   let currDate = new Date();
   let selectedDateStr = new Date().toISOString().split('T')[0];
@@ -105,9 +122,51 @@
   };
   request.onsuccess = e => {
     db = e.target.result;
+    initDropdowns();
     renderCalendar();
     loadDateData(selectedDateStr);
   };
+
+  function initDropdowns() {
+    const mSelect = document.getElementById('monthSelect');
+    const ySelect = document.getElementById('yearSelect');
+    
+    mSelect.innerHTML = engMonths.map((m, i) => `<option value="${i}">${m}</option>`).join('');
+    
+    // 1950 മുതൽ 2060 വരെയുള്ള വർഷങ്ങൾ
+    let yOptions = '';
+    for(let y = 1950; y <= 2060; y++) {
+      yOptions += `<option value="${y}">${y}</option>`;
+    }
+    ySelect.innerHTML = yOptions;
+  }
+
+  function updateDropdownValues() {
+    document.getElementById('monthSelect').value = currDate.getMonth();
+    document.getElementById('yearSelect').value = currDate.getFullYear();
+    document.getElementById('quickDatePicker').value = selectedDateStr;
+  }
+
+  function onSelectChange() {
+    const m = parseInt(document.getElementById('monthSelect').value);
+    const y = parseInt(document.getElementById('yearSelect').value);
+    currDate = new Date(y, m, 1);
+    renderCalendar();
+  }
+
+  function onQuickDateSelect(val) {
+    if(!val) return;
+    const d = dateFromString(val);
+    currDate = new Date(d.getFullYear(), d.getMonth(), 1);
+    selectDate(val);
+  }
+
+  function goToToday() {
+    const now = new Date();
+    currDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    const todayStr = localDateString(now);
+    selectDate(todayStr);
+  }
 
   function localDateString(d) {
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -120,7 +179,6 @@
 
   function degNorm(x) { return ((x % 360) + 360) % 360; }
 
-  // Astronomical Calculations
   function solarTropicalLongitude(date) {
     const y=date.getUTCFullYear(), m=date.getUTCMonth()+1, d=date.getUTCDate();
     const h=date.getUTCHours()+date.getUTCMinutes()/60+date.getUTCSeconds()/3600;
@@ -140,7 +198,6 @@
     return degNorm(L+6.289*Math.sin(M)-3.858*Math.sin((L-134.963)*Math.PI/180) + 0.214*Math.sin(2*M)-0.110*Math.sin(F));
   }
 
-  // Lahiri Ayanamsa Approximation
   function approxAyanamsa(date) {
     const y=date.getUTCFullYear()+(date.getUTCMonth()+1-0.5)/12;
     return 23.853 + 0.013968*(y-2000);
@@ -154,7 +211,6 @@
     return degNorm(moonTropicalLongitude(date)-approxAyanamsa(date));
   }
 
-  // Exact Sankranti Finder using Binary Search
   function getExactSankrantiTime(targetDeg, approxDate) {
     let low = approxDate.getTime() - 2 * 86400000;
     let high = approxDate.getTime() + 2 * 86400000;
@@ -163,28 +219,23 @@
       let mid = (low + high) / 2;
       let lon = siderealSun(new Date(mid));
       let diff = ((lon - targetDeg + 180) % 360) - 180;
-      if (diff < 0) {
-        low = mid;
-      } else {
-        high = mid;
-      }
+      if (diff < 0) low = mid;
+      else high = mid;
     }
     return new Date((low + high) / 2);
   }
 
-  // Determines the exact civil starting day of a Malayalam month based on Kerala 1:12 PM (Aparahna) rule
   function getCivilMonthStart(targetRashi, gYear) {
-    const gMonths = [3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 1, 2]; // Medam(Apr) to Meenam(Mar)
+    const gMonths = [3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 1, 2];
     const targetDeg = targetRashi * 30;
     
     let approxY = gYear;
     let approxM = gMonths[targetRashi];
-    if (targetRashi >= 9) approxY = gYear + 1; // Makaram, Kumbham, Meenam occur in next Gregorian year of solar cycle
+    if (targetRashi >= 9) approxY = gYear + 1;
 
     const approxDate = new Date(approxY, approxM, 15, 12, 0);
     const sankrantiMoment = getExactSankrantiTime(targetDeg, approxDate);
 
-    // Kerala Rule: If Sankranti occurs before Aparahna limit (approx 13:12 IST), Day 1 is on the same day. Else next day.
     const istHours = sankrantiMoment.getUTCHours() + 5.5 + sankrantiMoment.getUTCMinutes() / 60;
     const startDay = new Date(sankrantiMoment.getFullYear(), sankrantiMoment.getMonth(), sankrantiMoment.getDate());
     
@@ -198,7 +249,6 @@
     const gYear = date.getFullYear();
     const curTime = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
 
-    // Check solar months in the neighborhood
     let activeRashi = 0;
     let activeStart = null;
     let activeKollam = gYear - 824;
@@ -221,7 +271,6 @@
       if (curTime >= t.start.getTime() && (!nextT || curTime < nextT.start.getTime())) {
         activeRashi = t.rashi;
         activeStart = t.start;
-        // Kollavarsham changes on Chingam 1 (Rashi 4)
         activeKollam = t.gYearRef - 824;
         if (t.rashi < 4) activeKollam -= 1;
         break;
@@ -230,8 +279,7 @@
 
     const malDate = Math.floor((curTime - activeStart.getTime()) / 86400000) + 1;
     
-    // Nakshatram at 06:00 AM IST
-    const morningDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 30); // 00:30 UTC = 06:00 IST
+    const morningDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 30);
     const moon = siderealMoon(morningDate);
     const starIndex = Math.floor(degNorm(moon) / (360 / 27)) % 27;
 
@@ -247,8 +295,7 @@
     const year = currDate.getFullYear();
     const month = currDate.getMonth();
 
-    document.getElementById('engMonthYear').innerText =
-      currDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    updateDropdownValues();
 
     const midInfo = getMalayalamInfo(new Date(year, month, 15));
     document.getElementById('malMonthYear').innerText =
@@ -258,6 +305,8 @@
     const lastDate = new Date(year, month + 1, 0).getDate();
     const grid = document.getElementById('calendarGrid');
     const frag = document.createDocumentFragment();
+
+    const todayStr = localDateString(new Date());
 
     for (let i = 0; i < firstDay; i++) {
       const el = document.createElement('div');
@@ -272,7 +321,10 @@
       const malInfo = getMalayalamInfo(d);
       const cell = document.createElement('div');
 
-      cell.className = `day-cell ${dStr === selectedDateStr ? 'selected' : ''}`;
+      const isToday = dStr === todayStr ? 'today-cell' : '';
+      const isSel = dStr === selectedDateStr ? 'selected' : '';
+
+      cell.className = `day-cell ${isSel} ${isToday}`;
       cell.id = `cell-${dStr}`;
       cell.innerHTML = `
         <div class="day-num">${day}</div>
@@ -296,6 +348,8 @@
 
   function selectDate(dStr) {
     selectedDateStr = dStr;
+    const d = dateFromString(dStr);
+    currDate = new Date(d.getFullYear(), d.getMonth(), 1);
     renderCalendar();
     loadDateData(dStr);
   }
@@ -417,7 +471,6 @@
     };
   }
 
-  // 1. Export Current Month
   async function exportCurrentMonthICS() {
     const year = currDate.getFullYear();
     const month = currDate.getMonth();
@@ -456,7 +509,6 @@
     downloadICSFile(icsContent, `Malayalam_Calendar_${year}_${month + 1}.ics`);
   }
 
-  // 2. Export Entire Year
   async function exportCurrentYearICS() {
     const year = currDate.getFullYear();
     const allEntries = await getAllEntries();
