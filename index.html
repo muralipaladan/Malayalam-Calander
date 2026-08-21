@@ -1,404 +1,48 @@
-<!DOCTYPE html>
-<html lang="ml">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>മലയാളം കലണ്ടർ & പ്ലാനർ</title>
-  <meta name="theme-color" content="#b91c1c">
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
-    body { background: #f8fafc; color: #1e293b; padding: 12px; }
-    .container { max-width: 480px; margin: auto; background: #fff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); overflow: hidden; }
-    header { background: #b91c1c; color: white; padding: 16px; text-align: center; }
-    .nav-btn { background: rgba(255,255,255,0.2); border: none; color: white; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; }
-    .month-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-    .kerala-date-head { font-size: 13px; opacity: 0.9; }
-    
-    .weekdays { display: grid; grid-template-columns: repeat(7, 1fr); background: #f1f5f9; text-align: center; font-weight: bold; font-size: 12px; padding: 8px 0; }
-    .weekdays div:first-child { color: #dc2626; }
-    
-    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; padding: 8px; }
-    .day-cell { border: 1px solid #e2e8f0; border-radius: 8px; min-height: 54px; display: flex; flex-direction: column; justify-content: space-between; padding: 4px 2px; text-align: center; cursor: pointer; font-size: 11px; position: relative; background: #fff; }
-    .day-cell.selected { border: 2px solid #b91c1c; background: #fef2f2; font-weight: bold; }
-    .day-cell.other-month { opacity: 0.25; }
-    .day-num { font-size: 14px; font-weight: 600; }
-    .mal-num { font-size: 10px; color: #7c2d12; font-weight: bold; }
-    .star-name { font-size: 9px; color: #475569; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-    .dot-badge { width: 5px; height: 5px; background: #b91c1c; border-radius: 50%; position: absolute; top: 3px; right: 3px; }
+Code നോക്കി. ഇതിൽ ഉള്ള bugs/issues:
 
-    .details-panel { border-top: 2px solid #f1f5f9; padding: 16px; }
-    .panchangam-box { background: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; padding: 10px; margin-bottom: 12px; font-size: 13px; line-height: 1.5; }
-    
-    .btn-group-export { display: flex; gap: 6px; margin-bottom: 12px; }
-    .btn-export { flex: 1; background: #047857; color: white; font-weight: 600; border: none; padding: 8px; border-radius: 6px; font-size: 11px; cursor: pointer; text-align: center; }
-    .btn-export-year { background: #0f172a; }
+1. Bug: getMalayalamInfo — Malayalam date & month calculation incorrect
+(date.getDate() + 15) % 31 + 1 എന്നത് valid ഒരു formula അല്ല — ഇത് 1–32 range തരും. Real Kollavarsham conversion logic ഇല്ല, approximation മാത്രം.
 
-    .section-title { font-size: 13px; font-weight: 700; color: #475569; margin: 10px 0 6px; }
-    input, textarea, button { width: 100%; border-radius: 6px; border: 1px solid #cbd5e1; padding: 8px; font-size: 13px; }
-    textarea { resize: vertical; min-height: 60px; }
-    
-    .btn-main { background: #b91c1c; color: white; font-weight: 600; border: none; margin-top: 6px; cursor: pointer; }
-    .file-chip { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 6px 10px; border-radius: 6px; margin-top: 6px; font-size: 12px; }
-    .rem-item { display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-left: 3px solid #b91c1c; padding: 6px 8px; margin-top: 4px; font-size: 12px; }
-    .del-btn { color: #dc2626; cursor: pointer; font-weight: bold; border: none; background: transparent; width: auto; }
-  </style>
-</head>
-<body>
+2. Bug: ICS Export — Race condition (month export)
+exportCurrentMonthICS() ൽ loop-ൽ IndexedDB get() calls async ആണ്, പക്ഷേ processedCount === lastDate check synchronous order guarantee ചെയ്യുന്നില്ല. ചില days skip ആകാം.
 
-<div class="container">
-  <header>
-    <div class="month-header">
-      <button class="nav-btn" onclick="changeMonth(-1)">❮</button>
-      <div>
-        <h2 id="engMonthYear"></h2>
-        <div class="kerala-date-head" id="malMonthYear"></div>
-      </div>
-      <button class="nav-btn" onclick="changeMonth(1)">❯</button>
-    </div>
-  </header>
+3. Bug: loadDateData — new Date(dStr) timezone issue
+new Date("2026-08-21") UTC midnight ആണ്; Indian timezone-ൽ ഇത് previous day ആകും. new Date(dStr + 'T00:00:00') വേണം.
 
-  <div class="weekdays">
-    <div>ഞായർ</div><div>തിങ്കൾ</div><div>ചൊവ്വ</div><div>ബുധൻ</div><div>വ്യാഴം</div><div>വെള്ളി</div><div>ശനി</div>
-  </div>
+4. Bug: changeMonth — mutates currDate directly
+currDate.setMonth() ൽ January 31 → February 28 → March 28 ആകും (date drift). Month navigation-ൽ currDate = new Date(year, month+step, 1) use ചെയ്യണം.
 
-  <div class="calendar-grid" id="calendarGrid"></div>
+5. Minor: checkDot — calendar render ശേഷം DOM element ഇല്ലാതെ call ചെയ്യുന്നു
+renderCalendar() loop-ൽ innerHTML += append ചെയ്യുന്നു — checkDot(dStr) call ചെയ്യുമ്പോൾ DOM ready ആയിട്ടില്ലായിരിക്കും. Grid innerHTML set ആകുന്നത് += loop ആണ്, checkDot element find ചെയ്യും but dot hide/show work ആകും — ഇത് okay, but innerHTML += loop performance issue ആണ്.
 
-  <div class="details-panel">
-    <div class="panchangam-box" id="panchangamInfo"></div>
+6. Missing: PWA manifest / service worker
+theme-color meta ഉണ്ട്, but manifest.json / service worker ഇല്ല — PWA installable ആകില്ല.
 
-    <div class="btn-group-export">
-      <button class="btn-export" onclick="exportCurrentMonthICS()">📥 ഈ മാസം Export (.ics)</button>
-      <button class="btn-export btn-export-year" onclick="exportCurrentYearICS()">📅 ഈ വർഷം മുഴുവൻ Export (.ics)</button>
-    </div>
+ഏതൊക്കെ fix ചെയ്യണം? Main bugs (1–4) fix ചെയ്ത full corrected file തരട്ടെ? അതോ specific issue മാത്രം?
 
-    <div class="section-title">റീമൈൻഡറുകൾ / ടാസ്കുകൾ</div>
-    <div style="display: flex; gap: 6px;">
-      <input type="text" id="remInput" placeholder="റീമൈൻഡർ ടൈപ്പ് ചെയ്യുക...">
-      <button class="btn-main" style="width: 70px; margin-top:0;" onclick="addReminder()">Add</button>
-    </div>
-    <div id="reminderList"></div>
+ellam fix cheyyu, malayalam calander enthinu base cheythittanu ennu manasilakki calander nirmikku
 
-    <div class="section-title">കുറിപ്പുകൾ (Notes)</div>
-    <textarea id="noteInput" placeholder="ഈ ദിവസത്തെ കുറിപ്പുകൾ ഇവിടെ എഴുതാം..."></textarea>
-    <button class="btn-main" onclick="saveNote()">Save Note</button>
+ശരി! ആദ്യം Kerala/Malayalam calendar-ന്റെ proper base മനസ്സിലാക്കട്ടെ.
 
-    <div class="section-title">ഫയൽ അറ്റാച്ച്‌മെന്റുകൾ</div>
-    <input type="file" id="fileInput" onchange="uploadFile()">
-    <div id="fileList"></div>
-  </div>
-</div>
+Searched the web, viewed a file · 1 note
 
-<script>
-  const stars = ["അശ്വതി","ഭരണി","കാർത്തിക","രോഹിണി","മകയിരം","തിരുവാതിര","പുണർതം","പൂയം","ആയില്യം","മകം","പൂരം","ഉത്രം","അത്തം","ചിത്തിര","ചോതി","വിശാഖം","അനിഴം","തൃക്കേട്ട","മൂലം","പൂരാടം","ഉത്രാടം","തിരുവോണം","അവിട്ടം","ചതയം","പൂരുരുട്ടാതി","ഉത്രട്ടാതി","രേവതി"];
-  const malMonths = ["ചിങ്ങം","കന്നി","തുലാം","വൃശ്ചികം","ധനു","മകരം","കുംഭം","മീനം","മേടം","ഇടവം","മിഥുനം","കർക്കടകം"];
-  
-  let currDate = new Date();
-  let selectedDateStr = new Date().toISOString().split('T')[0];
-  let db;
+ഇനി ശരിയായ astronomical algorithm ഉപയോഗിച്ച് complete fixed file ഉണ്ടാക്കാം:
 
-  const request = indexedDB.open("MalayalamCalendarDB", 1);
-  request.onupgradeneeded = e => {
-    db = e.target.result;
-    if(!db.objectStoreNames.contains("entries")) {
-      db.createObjectStore("entries", { keyPath: "date" });
-    }
-  };
-  request.onsuccess = e => {
-    db = e.target.result;
-    renderCalendar();
-    loadDateData(selectedDateStr);
-  };
+മനസ്സിലായ കാര്യങ്ങൾ:
 
-  function getMalayalamInfo(date) {
-    const startOfYear = new Date(date.getFullYear(), 0, 1);
-    const dayOfYear = Math.floor((date - startOfYear) / (24 * 60 * 60 * 1000));
-    
-    const starIndex = (dayOfYear + date.getFullYear()) % 27;
-    let mMonthIdx = (date.getMonth() + 4) % 12;
-    let mDate = (date.getDate() + 15) % 31 + 1;
-    let kYear = date.getFullYear() - 824;
-    if(date.getMonth() < 7 || (date.getMonth() === 7 && date.getDate() < 17)) kYear -= 1;
+Malayalam Calendar = Sidereal Solar Calendar — Sun's transit through zodiac signs (Rashis) അടിസ്ഥാനം
+മാസം തുടങ്ങുന്നത് Sankranti (Sun enters new Rashi) ന് ആണ്
+Kollavarsham epoch = 825 CE — Chingam 1 = mid-August
+ഇന്ന് (Aug 21, 2026) = ചിങ്ങം 5, 1202 — ഇത് verify ചെയ്തു
+നക്ഷത്രം = Moon's position ൽ നിന്ന് (27 nakshatras), Sun's position അല്ല
+Searched the web
 
-    return {
-      star: stars[starIndex],
-      malDate: mDate,
-      malMonth: malMonths[mMonthIdx],
-      kollavarsham: kYear
-    };
-  }
+ഇനി algorithm clear ആയി. Full corrected file ഉണ്ടാക്കട്ടെ:
 
-  function renderCalendar() {
-    const year = currDate.getFullYear();
-    const month = currDate.getMonth();
-    
-    document.getElementById('engMonthYear').innerText = currDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-    const midInfo = getMalayalamInfo(new Date(year, month, 15));
-    document.getElementById('malMonthYear').innerText = `കൊല്ലവർഷം ${midInfo.kollavarsham} ${midInfo.malMonth}`;
+Algorithm Summary:
 
-    const firstDay = new Date(year, month, 1).getDay();
-    const lastDate = new Date(year, month + 1, 0).getDate();
-    const grid = document.getElementById('calendarGrid');
-    grid.innerHTML = '';
-
-    for (let i = 0; i < firstDay; i++) {
-      grid.innerHTML += '<div class="day-cell other-month"></div>';
-    }
-
-    for (let day = 1; day <= lastDate; day++) {
-      const thisDate = new Date(year, month, day);
-      const dStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-      const malInfo = getMalayalamInfo(thisDate);
-      const isSel = dStr === selectedDateStr ? 'selected' : '';
-
-      grid.innerHTML += `
-        <div class="day-cell ${isSel}" onclick="selectDate('${dStr}')" id="cell-${dStr}">
-          <div class="day-num">${day}</div>
-          <div class="mal-num">${malInfo.malDate}</div>
-          <div class="star-name">${malInfo.star}</div>
-          <span class="dot-badge" id="dot-${dStr}" style="display:none;"></span>
-        </div>
-      `;
-      checkDot(dStr);
-    }
-  }
-
-  function changeMonth(step) {
-    currDate.setMonth(currDate.getMonth() + step);
-    renderCalendar();
-  }
-
-  function selectDate(dStr) {
-    selectedDateStr = dStr;
-    renderCalendar();
-    loadDateData(dStr);
-  }
-
-  function loadDateData(dStr) {
-    const d = new Date(dStr);
-    const m = getMalayalamInfo(d);
-    document.getElementById('panchangamInfo').innerHTML = `
-      <strong>${d.toDateString()}</strong><br>
-      മലയാള തീയതി: ${m.kollavarsham} ${m.malMonth} ${m.malDate}<br>
-      നക്ഷത്രം: <strong>${m.star}</strong>
-    `;
-
-    const tx = db.transaction("entries", "readonly");
-    const req = tx.objectStore("entries").get(dStr);
-    req.onsuccess = () => {
-      const data = req.result || { notes: '', reminders: [], files: [] };
-      document.getElementById('noteInput').value = data.notes || '';
-      renderReminders(data.reminders || []);
-      renderFiles(data.files || []);
-    };
-  }
-
-  function getEntry(cb) {
-    const tx = db.transaction("entries", "readwrite");
-    const store = tx.objectStore("entries");
-    const req = store.get(selectedDateStr);
-    req.onsuccess = () => {
-      let data = req.result || { date: selectedDateStr, notes: '', reminders: [], files: [] };
-      cb(data, store);
-    };
-  }
-
-  function saveNote() {
-    getEntry((data, store) => {
-      data.notes = document.getElementById('noteInput').value;
-      store.put(data);
-      alert('Note saved!');
-      checkDot(selectedDateStr);
-    });
-  }
-
-  function addReminder() {
-    const txt = document.getElementById('remInput').value;
-    if(!txt) return;
-    getEntry((data, store) => {
-      data.reminders.push(txt);
-      store.put(data);
-      document.getElementById('remInput').value = '';
-      renderReminders(data.reminders);
-      checkDot(selectedDateStr);
-    });
-  }
-
-  function deleteReminder(idx) {
-    getEntry((data, store) => {
-      data.reminders.splice(idx, 1);
-      store.put(data);
-      renderReminders(data.reminders);
-      checkDot(selectedDateStr);
-    });
-  }
-
-  function uploadFile() {
-    const file = document.getElementById('fileInput').files[0];
-    if(!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      getEntry((data, store) => {
-        data.files.push({ name: file.name, data: reader.result });
-        store.put(data);
-        renderFiles(data.files);
-        checkDot(selectedDateStr);
-      });
-    };
-    reader.readAsDataURL(file);
-  }
-
-  function deleteFile(idx) {
-    getEntry((data, store) => {
-      data.files.splice(idx, 1);
-      store.put(data);
-      renderFiles(data.files);
-      checkDot(selectedDateStr);
-    });
-  }
-
-  function renderReminders(list) {
-    const cont = document.getElementById('reminderList');
-    cont.innerHTML = list.map((r, i) => `
-      <div class="rem-item">
-        <span>📌 ${r}</span>
-        <button class="del-btn" onclick="deleteReminder(${i})">✕</button>
-      </div>
-    `).join('');
-  }
-
-  function renderFiles(list) {
-    const cont = document.getElementById('fileList');
-    cont.innerHTML = list.map((f, i) => `
-      <div class="file-chip">
-        <a href="${f.data}" download="${f.name}">📄 ${f.name}</a>
-        <button class="del-btn" onclick="deleteFile(${i})">✕</button>
-      </div>
-    `).join('');
-  }
-
-  function checkDot(dStr) {
-    if(!db) return;
-    const tx = db.transaction("entries", "readonly");
-    const req = tx.objectStore("entries").get(dStr);
-    req.onsuccess = () => {
-      const d = req.result;
-      const dot = document.getElementById(`dot-${dStr}`);
-      if(dot) {
-        const hasContent = d && (d.notes || (d.reminders && d.reminders.length) || (d.files && d.files.length));
-        dot.style.display = hasContent ? 'block' : 'none';
-      }
-    };
-  }
-
-  // 1. Export Current Month
-  function exportCurrentMonthICS() {
-    const year = currDate.getFullYear();
-    const month = currDate.getMonth();
-    const lastDate = new Date(year, month + 1, 0).getDate();
-    
-    let icsContent = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Malayalam Calendar PWA//EN\nCALSCALE:GREGORIAN\nMETHOD:PUBLISH\n";
-
-    const tx = db.transaction("entries", "readonly");
-    const store = tx.objectStore("entries");
-    let processedCount = 0;
-
-    for (let day = 1; day <= lastDate; day++) {
-      const thisDate = new Date(year, month, day);
-      const nextDate = new Date(year, month, day + 1);
-      const dStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-      const mInfo = getMalayalamInfo(thisDate);
-      
-      const isoStart = `${year}${String(month+1).padStart(2,'0')}${String(day).padStart(2,'0')}`;
-      const isoEnd = `${nextDate.getFullYear()}${String(nextDate.getMonth()+1).padStart(2,'0')}${String(nextDate.getDate()).padStart(2,'0')}`;
-
-      const req = store.get(dStr);
-      req.onsuccess = () => {
-        const entry = req.result;
-        let desc = `കൊല്ലവർഷം: ${mInfo.kollavarsham} ${mInfo.malMonth} ${mInfo.malDate}\\nനക്ഷത്രം: ${mInfo.star}`;
-        
-        if (entry) {
-          if (entry.notes) desc += `\\nകുറിപ്പ്: ${entry.notes.replace(/\n/g, '\\n')}`;
-          if (entry.reminders && entry.reminders.length > 0) {
-            desc += `\\nറീമൈൻഡറുകൾ: ${entry.reminders.join(', ')}`;
-          }
-        }
-
-        icsContent += "BEGIN:VEVENT\n";
-        icsContent += `UID:malcal-${dStr}@pwa.local\n`;
-        icsContent += `DTSTART;VALUE=DATE:${isoStart}\n`;
-        icsContent += `DTEND;VALUE=DATE:${isoEnd}\n`;
-        icsContent += `SUMMARY:${mInfo.malMonth} ${mInfo.malDate} - ${mInfo.star}\n`;
-        icsContent += `DESCRIPTION:${desc}\n`;
-        icsContent += "END:VEVENT\n";
-
-        processedCount++;
-        if (processedCount === lastDate) {
-          icsContent += "END:VCALENDAR";
-          downloadICSFile(icsContent, `Malayalam_Calendar_${year}_${month+1}.ics`);
-        }
-      };
-    }
-  }
-
-  // 2. Export Entire Year
-  function exportCurrentYearICS() {
-    const year = currDate.getFullYear();
-    let icsContent = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Malayalam Calendar Full Year//EN\nCALSCALE:GREGORIAN\nMETHOD:PUBLISH\n";
-
-    const tx = db.transaction("entries", "readonly");
-    const store = tx.objectStore("entries");
-
-    // Get all user entries from IndexedDB first
-    const allEntriesReq = store.getAll();
-    allEntriesReq.onsuccess = () => {
-      const allEntries = allEntriesReq.result || [];
-      const entryMap = {};
-      allEntries.forEach(e => entryMap[e.date] = e);
-
-      for (let m = 0; m < 12; m++) {
-        const lastDay = new Date(year, m + 1, 0).getDate();
-        for (let d = 1; d <= lastDay; d++) {
-          const thisDate = new Date(year, m, d);
-          const nextDate = new Date(year, m, d + 1);
-          const dStr = `${year}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-          const mInfo = getMalayalamInfo(thisDate);
-
-          const isoStart = `${year}${String(m+1).padStart(2,'0')}${String(d).padStart(2,'0')}`;
-          const isoEnd = `${nextDate.getFullYear()}${String(nextDate.getMonth()+1).padStart(2,'0')}${String(nextDate.getDate()).padStart(2,'0')}`;
-
-          let desc = `കൊല്ലവർഷം: ${mInfo.kollavarsham} ${mInfo.malMonth} ${mInfo.malDate}\\nനക്ഷത്രം: ${mInfo.star}`;
-          const entry = entryMap[dStr];
-          if (entry) {
-            if (entry.notes) desc += `\\nകുറിപ്പ്: ${entry.notes.replace(/\n/g, '\\n')}`;
-            if (entry.reminders && entry.reminders.length > 0) {
-              desc += `\\nറീമൈൻഡറുകൾ: ${entry.reminders.join(', ')}`;
-            }
-          }
-
-          icsContent += "BEGIN:VEVENT\n";
-          icsContent += `UID:malcal-${dStr}@pwa.local\n`;
-          icsContent += `DTSTART;VALUE=DATE:${isoStart}\n`;
-          icsContent += `DTEND;VALUE=DATE:${isoEnd}\n`;
-          icsContent += `SUMMARY:${mInfo.malMonth} ${mInfo.malDate} - ${mInfo.star}\n`;
-          icsContent += `DESCRIPTION:${desc}\n`;
-          icsContent += "END:VEVENT\n";
-        }
-      }
-
-      icsContent += "END:VCALENDAR";
-      downloadICSFile(icsContent, `Malayalam_Calendar_FullYear_${year}.ics`);
-    };
-  }
-
-  function downloadICSFile(content, filename) {
-    const blob = new Blob([content], { type: 'text/calendar;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = window.URL.createObjectURL(blob);
-    link.setAttribute('download', filename);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }
-</script>
-</body>
-</html>
+Malayalam Month = Sun's sidereal longitude (tropical − Lahiri ayanamsa ~24.13°) ÷ 30 → Rashi index → month name
+Malayalam Date = Days since that month's Sankranti (Sun entered this Rashi) + 1
+Nakshatra = Moon's sidereal longitude ÷ 13.333° → index (0–26)
+Kollavarsham = Gregorian year − 824 (before Chingam 1) or − 825 (after)
+Jean Meeus' low-precision Sun/Moon formulas use ചെയ്ത് approximate astronomical positions
