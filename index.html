@@ -18,7 +18,7 @@
     .weekdays div:first-child { color: #dc2626; }
     
     .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; padding: 8px; }
-    .day-cell { border: 1px solid #e2e8f0; border-radius: 8px; min-height: 52px; display: flex; flex-direction: column; justify-content: space-between; padding: 4px 2px; text-align: center; cursor: pointer; font-size: 11px; position: relative; background: #fff; }
+    .day-cell { border: 1px solid #e2e8f0; border-radius: 8px; min-height: 54px; display: flex; flex-direction: column; justify-content: space-between; padding: 4px 2px; text-align: center; cursor: pointer; font-size: 11px; position: relative; background: #fff; }
     .day-cell.selected { border: 2px solid #b91c1c; background: #fef2f2; font-weight: bold; }
     .day-cell.other-month { opacity: 0.25; }
     .day-num { font-size: 14px; font-weight: 600; }
@@ -27,8 +27,12 @@
     .dot-badge { width: 5px; height: 5px; background: #b91c1c; border-radius: 50%; position: absolute; top: 3px; right: 3px; }
 
     .details-panel { border-top: 2px solid #f1f5f9; padding: 16px; }
-    .panchangam-box { background: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; padding: 10px; margin-bottom: 12px; font-size: 13px; }
+    .panchangam-box { background: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; padding: 10px; margin-bottom: 12px; font-size: 13px; line-height: 1.5; }
     
+    .btn-group-export { display: flex; gap: 6px; margin-bottom: 12px; }
+    .btn-export { flex: 1; background: #047857; color: white; font-weight: 600; border: none; padding: 8px; border-radius: 6px; font-size: 11px; cursor: pointer; text-align: center; }
+    .btn-export-year { background: #0f172a; }
+
     .section-title { font-size: 13px; font-weight: 700; color: #475569; margin: 10px 0 6px; }
     input, textarea, button { width: 100%; border-radius: 6px; border: 1px solid #cbd5e1; padding: 8px; font-size: 13px; }
     textarea { resize: vertical; min-height: 60px; }
@@ -62,6 +66,11 @@
   <div class="details-panel">
     <div class="panchangam-box" id="panchangamInfo"></div>
 
+    <div class="btn-group-export">
+      <button class="btn-export" onclick="exportCurrentMonthICS()">📥 ഈ മാസം Export (.ics)</button>
+      <button class="btn-export btn-export-year" onclick="exportCurrentYearICS()">📅 ഈ വർഷം മുഴുവൻ Export (.ics)</button>
+    </div>
+
     <div class="section-title">റീമൈൻഡറുകൾ / ടാസ്കുകൾ</div>
     <div style="display: flex; gap: 6px;">
       <input type="text" id="remInput" placeholder="റീമൈൻഡർ ടൈപ്പ് ചെയ്യുക...">
@@ -87,11 +96,12 @@
   let selectedDateStr = new Date().toISOString().split('T')[0];
   let db;
 
-  // 1. IndexedDB Setup
   const request = indexedDB.open("MalayalamCalendarDB", 1);
   request.onupgradeneeded = e => {
     db = e.target.result;
-    db.createObjectStore("entries", { keyPath: "date" });
+    if(!db.objectStoreNames.contains("entries")) {
+      db.createObjectStore("entries", { keyPath: "date" });
+    }
   };
   request.onsuccess = e => {
     db = e.target.result;
@@ -103,7 +113,6 @@
     const startOfYear = new Date(date.getFullYear(), 0, 1);
     const dayOfYear = Math.floor((date - startOfYear) / (24 * 60 * 60 * 1000));
     
-    // പഞ്ചാംഗം ലളിതമായ അൽഗോരിതം മാപ്പിംഗ്
     const starIndex = (dayOfYear + date.getFullYear()) % 27;
     let mMonthIdx = (date.getMonth() + 4) % 12;
     let mDate = (date.getDate() + 15) % 31 + 1;
@@ -279,6 +288,116 @@
         dot.style.display = hasContent ? 'block' : 'none';
       }
     };
+  }
+
+  // 1. Export Current Month
+  function exportCurrentMonthICS() {
+    const year = currDate.getFullYear();
+    const month = currDate.getMonth();
+    const lastDate = new Date(year, month + 1, 0).getDate();
+    
+    let icsContent = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Malayalam Calendar PWA//EN\nCALSCALE:GREGORIAN\nMETHOD:PUBLISH\n";
+
+    const tx = db.transaction("entries", "readonly");
+    const store = tx.objectStore("entries");
+    let processedCount = 0;
+
+    for (let day = 1; day <= lastDate; day++) {
+      const thisDate = new Date(year, month, day);
+      const nextDate = new Date(year, month, day + 1);
+      const dStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+      const mInfo = getMalayalamInfo(thisDate);
+      
+      const isoStart = `${year}${String(month+1).padStart(2,'0')}${String(day).padStart(2,'0')}`;
+      const isoEnd = `${nextDate.getFullYear()}${String(nextDate.getMonth()+1).padStart(2,'0')}${String(nextDate.getDate()).padStart(2,'0')}`;
+
+      const req = store.get(dStr);
+      req.onsuccess = () => {
+        const entry = req.result;
+        let desc = `കൊല്ലവർഷം: ${mInfo.kollavarsham} ${mInfo.malMonth} ${mInfo.malDate}\\nനക്ഷത്രം: ${mInfo.star}`;
+        
+        if (entry) {
+          if (entry.notes) desc += `\\nകുറിപ്പ്: ${entry.notes.replace(/\n/g, '\\n')}`;
+          if (entry.reminders && entry.reminders.length > 0) {
+            desc += `\\nറീമൈൻഡറുകൾ: ${entry.reminders.join(', ')}`;
+          }
+        }
+
+        icsContent += "BEGIN:VEVENT\n";
+        icsContent += `UID:malcal-${dStr}@pwa.local\n`;
+        icsContent += `DTSTART;VALUE=DATE:${isoStart}\n`;
+        icsContent += `DTEND;VALUE=DATE:${isoEnd}\n`;
+        icsContent += `SUMMARY:${mInfo.malMonth} ${mInfo.malDate} - ${mInfo.star}\n`;
+        icsContent += `DESCRIPTION:${desc}\n`;
+        icsContent += "END:VEVENT\n";
+
+        processedCount++;
+        if (processedCount === lastDate) {
+          icsContent += "END:VCALENDAR";
+          downloadICSFile(icsContent, `Malayalam_Calendar_${year}_${month+1}.ics`);
+        }
+      };
+    }
+  }
+
+  // 2. Export Entire Year
+  function exportCurrentYearICS() {
+    const year = currDate.getFullYear();
+    let icsContent = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Malayalam Calendar Full Year//EN\nCALSCALE:GREGORIAN\nMETHOD:PUBLISH\n";
+
+    const tx = db.transaction("entries", "readonly");
+    const store = tx.objectStore("entries");
+
+    // Get all user entries from IndexedDB first
+    const allEntriesReq = store.getAll();
+    allEntriesReq.onsuccess = () => {
+      const allEntries = allEntriesReq.result || [];
+      const entryMap = {};
+      allEntries.forEach(e => entryMap[e.date] = e);
+
+      for (let m = 0; m < 12; m++) {
+        const lastDay = new Date(year, m + 1, 0).getDate();
+        for (let d = 1; d <= lastDay; d++) {
+          const thisDate = new Date(year, m, d);
+          const nextDate = new Date(year, m, d + 1);
+          const dStr = `${year}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+          const mInfo = getMalayalamInfo(thisDate);
+
+          const isoStart = `${year}${String(m+1).padStart(2,'0')}${String(d).padStart(2,'0')}`;
+          const isoEnd = `${nextDate.getFullYear()}${String(nextDate.getMonth()+1).padStart(2,'0')}${String(nextDate.getDate()).padStart(2,'0')}`;
+
+          let desc = `കൊല്ലവർഷം: ${mInfo.kollavarsham} ${mInfo.malMonth} ${mInfo.malDate}\\nനക്ഷത്രം: ${mInfo.star}`;
+          const entry = entryMap[dStr];
+          if (entry) {
+            if (entry.notes) desc += `\\nകുറിപ്പ്: ${entry.notes.replace(/\n/g, '\\n')}`;
+            if (entry.reminders && entry.reminders.length > 0) {
+              desc += `\\nറീമൈൻഡറുകൾ: ${entry.reminders.join(', ')}`;
+            }
+          }
+
+          icsContent += "BEGIN:VEVENT\n";
+          icsContent += `UID:malcal-${dStr}@pwa.local\n`;
+          icsContent += `DTSTART;VALUE=DATE:${isoStart}\n`;
+          icsContent += `DTEND;VALUE=DATE:${isoEnd}\n`;
+          icsContent += `SUMMARY:${mInfo.malMonth} ${mInfo.malDate} - ${mInfo.star}\n`;
+          icsContent += `DESCRIPTION:${desc}\n`;
+          icsContent += "END:VEVENT\n";
+        }
+      }
+
+      icsContent += "END:VCALENDAR";
+      downloadICSFile(icsContent, `Malayalam_Calendar_FullYear_${year}.ics`);
+    };
+  }
+
+  function downloadICSFile(content, filename) {
+    const blob = new Blob([content], { type: 'text/calendar;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = window.URL.createObjectURL(blob);
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 </script>
 </body>
