@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="ml">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>മലയാളം കലണ്ടർ & പ്ലാനർ</title>
+  <meta name="theme-color" content="#b91c1c">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    body { background: #f8fafc; color: #1e293b; padding: 12px; }
+    .container { max-width: 480px; margin: auto; background: #fff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); overflow: hidden; }
+    header { background: #b91c1c; color: white; padding: 16px; text-align: center; }
+    .nav-btn { background: rgba(255,255,255,0.2); border: none; color: white; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; }
+    .month-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .kerala-date-head { font-size: 13px; opacity: 0.9; }
+    
+    .weekdays { display: grid; grid-template-columns: repeat(7, 1fr); background: #f1f5f9; text-align: center; font-weight: bold; font-size: 12px; padding: 8px 0; }
+    .weekdays div:first-child { color: #dc2626; }
+    
+    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; padding: 8px; }
+    .day-cell { border: 1px solid #e2e8f0; border-radius: 8px; min-height: 52px; display: flex; flex-direction: column; justify-content: space-between; padding: 4px 2px; text-align: center; cursor: pointer; font-size: 11px; position: relative; background: #fff; }
+    .day-cell.selected { border: 2px solid #b91c1c; background: #fef2f2; font-weight: bold; }
+    .day-cell.other-month { opacity: 0.25; }
+    .day-num { font-size: 14px; font-weight: 600; }
+    .mal-num { font-size: 10px; color: #7c2d12; font-weight: bold; }
+    .star-name { font-size: 9px; color: #475569; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .dot-badge { width: 5px; height: 5px; background: #b91c1c; border-radius: 50%; position: absolute; top: 3px; right: 3px; }
+
+    .details-panel { border-top: 2px solid #f1f5f9; padding: 16px; }
+    .panchangam-box { background: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; padding: 10px; margin-bottom: 12px; font-size: 13px; }
+    
+    .section-title { font-size: 13px; font-weight: 700; color: #475569; margin: 10px 0 6px; }
+    input, textarea, button { width: 100%; border-radius: 6px; border: 1px solid #cbd5e1; padding: 8px; font-size: 13px; }
+    textarea { resize: vertical; min-height: 60px; }
+    
+    .btn-main { background: #b91c1c; color: white; font-weight: 600; border: none; margin-top: 6px; cursor: pointer; }
+    .file-chip { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 6px 10px; border-radius: 6px; margin-top: 6px; font-size: 12px; }
+    .rem-item { display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-left: 3px solid #b91c1c; padding: 6px 8px; margin-top: 4px; font-size: 12px; }
+    .del-btn { color: #dc2626; cursor: pointer; font-weight: bold; border: none; background: transparent; width: auto; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="month-header">
+      <button class="nav-btn" onclick="changeMonth(-1)">❮</button>
+      <div>
+        <h2 id="engMonthYear"></h2>
+        <div class="kerala-date-head" id="malMonthYear"></div>
+      </div>
+      <button class="nav-btn" onclick="changeMonth(1)">❯</button>
+    </div>
+  </header>
+
+  <div class="weekdays">
+    <div>ഞായർ</div><div>തിങ്കൾ</div><div>ചൊവ്വ</div><div>ബുധൻ</div><div>വ്യാഴം</div><div>വെള്ളി</div><div>ശനി</div>
+  </div>
+
+  <div class="calendar-grid" id="calendarGrid"></div>
+
+  <div class="details-panel">
+    <div class="panchangam-box" id="panchangamInfo"></div>
+
+    <div class="section-title">റീമൈൻഡറുകൾ / ടാസ്കുകൾ</div>
+    <div style="display: flex; gap: 6px;">
+      <input type="text" id="remInput" placeholder="റീമൈൻഡർ ടൈപ്പ് ചെയ്യുക...">
+      <button class="btn-main" style="width: 70px; margin-top:0;" onclick="addReminder()">Add</button>
+    </div>
+    <div id="reminderList"></div>
+
+    <div class="section-title">കുറിപ്പുകൾ (Notes)</div>
+    <textarea id="noteInput" placeholder="ഈ ദിവസത്തെ കുറിപ്പുകൾ ഇവിടെ എഴുതാം..."></textarea>
+    <button class="btn-main" onclick="saveNote()">Save Note</button>
+
+    <div class="section-title">ഫയൽ അറ്റാച്ച്‌മെന്റുകൾ</div>
+    <input type="file" id="fileInput" onchange="uploadFile()">
+    <div id="fileList"></div>
+  </div>
+</div>
+
+<script>
+  const stars = ["അശ്വതി","ഭരണി","കാർത്തിക","രോഹിണി","മകയിരം","തിരുവാതിര","പുണർതം","പൂയം","ആയില്യം","മകം","പൂരം","ഉത്രം","അത്തം","ചിത്തിര","ചോതി","വിശാഖം","അനിഴം","തൃക്കേട്ട","മൂലം","പൂരാടം","ഉത്രാടം","തിരുവോണം","അവിട്ടം","ചതയം","പൂരുരുട്ടാതി","ഉത്രട്ടാതി","രേവതി"];
+  const malMonths = ["ചിങ്ങം","കന്നി","തുലാം","വൃശ്ചികം","ധനു","മകരം","കുംഭം","മീനം","മേടം","ഇടവം","മിഥുനം","കർക്കടകം"];
+  
+  let currDate = new Date();
+  let selectedDateStr = new Date().toISOString().split('T')[0];
+  let db;
+
+  // 1. IndexedDB Setup
+  const request = indexedDB.open("MalayalamCalendarDB", 1);
+  request.onupgradeneeded = e => {
+    db = e.target.result;
+    db.createObjectStore("entries", { keyPath: "date" });
+  };
+  request.onsuccess = e => {
+    db = e.target.result;
+    renderCalendar();
+    loadDateData(selectedDateStr);
+  };
+
+  function getMalayalamInfo(date) {
+    const startOfYear = new Date(date.getFullYear(), 0, 1);
+    const dayOfYear = Math.floor((date - startOfYear) / (24 * 60 * 60 * 1000));
+    
+    // പഞ്ചാംഗം ലളിതമായ അൽഗോരിതം മാപ്പിംഗ്
+    const starIndex = (dayOfYear + date.getFullYear()) % 27;
+    let mMonthIdx = (date.getMonth() + 4) % 12;
+    let mDate = (date.getDate() + 15) % 31 + 1;
+    let kYear = date.getFullYear() - 824;
+    if(date.getMonth() < 7 || (date.getMonth() === 7 && date.getDate() < 17)) kYear -= 1;
+
+    return {
+      star: stars[starIndex],
+      malDate: mDate,
+      malMonth: malMonths[mMonthIdx],
+      kollavarsham: kYear
+    };
+  }
+
+  function renderCalendar() {
+    const year = currDate.getFullYear();
+    const month = currDate.getMonth();
+    
+    document.getElementById('engMonthYear').innerText = currDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    const midInfo = getMalayalamInfo(new Date(year, month, 15));
+    document.getElementById('malMonthYear').innerText = `കൊല്ലവർഷം ${midInfo.kollavarsham} ${midInfo.malMonth}`;
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const lastDate = new Date(year, month + 1, 0).getDate();
+    const grid = document.getElementById('calendarGrid');
+    grid.innerHTML = '';
+
+    for (let i = 0; i < firstDay; i++) {
+      grid.innerHTML += '<div class="day-cell other-month"></div>';
+    }
+
+    for (let day = 1; day <= lastDate; day++) {
+      const thisDate = new Date(year, month, day);
+      const dStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+      const malInfo = getMalayalamInfo(thisDate);
+      const isSel = dStr === selectedDateStr ? 'selected' : '';
+
+      grid.innerHTML += `
+        <div class="day-cell ${isSel}" onclick="selectDate('${dStr}')" id="cell-${dStr}">
+          <div class="day-num">${day}</div>
+          <div class="mal-num">${malInfo.malDate}</div>
+          <div class="star-name">${malInfo.star}</div>
+          <span class="dot-badge" id="dot-${dStr}" style="display:none;"></span>
+        </div>
+      `;
+      checkDot(dStr);
+    }
+  }
+
+  function changeMonth(step) {
+    currDate.setMonth(currDate.getMonth() + step);
+    renderCalendar();
+  }
+
+  function selectDate(dStr) {
+    selectedDateStr = dStr;
+    renderCalendar();
+    loadDateData(dStr);
+  }
+
+  function loadDateData(dStr) {
+    const d = new Date(dStr);
+    const m = getMalayalamInfo(d);
+    document.getElementById('panchangamInfo').innerHTML = `
+      <strong>${d.toDateString()}</strong><br>
+      മലയാള തീയതി: ${m.kollavarsham} ${m.malMonth} ${m.malDate}<br>
+      നക്ഷത്രം: <strong>${m.star}</strong>
+    `;
+
+    const tx = db.transaction("entries", "readonly");
+    const req = tx.objectStore("entries").get(dStr);
+    req.onsuccess = () => {
+      const data = req.result || { notes: '', reminders: [], files: [] };
+      document.getElementById('noteInput').value = data.notes || '';
+      renderReminders(data.reminders || []);
+      renderFiles(data.files || []);
+    };
+  }
+
+  function getEntry(cb) {
+    const tx = db.transaction("entries", "readwrite");
+    const store = tx.objectStore("entries");
+    const req = store.get(selectedDateStr);
+    req.onsuccess = () => {
+      let data = req.result || { date: selectedDateStr, notes: '', reminders: [], files: [] };
+      cb(data, store);
+    };
+  }
+
+  function saveNote() {
+    getEntry((data, store) => {
+      data.notes = document.getElementById('noteInput').value;
+      store.put(data);
+      alert('Note saved!');
+      checkDot(selectedDateStr);
+    });
+  }
+
+  function addReminder() {
+    const txt = document.getElementById('remInput').value;
+    if(!txt) return;
+    getEntry((data, store) => {
+      data.reminders.push(txt);
+      store.put(data);
+      document.getElementById('remInput').value = '';
+      renderReminders(data.reminders);
+      checkDot(selectedDateStr);
+    });
+  }
+
+  function deleteReminder(idx) {
+    getEntry((data, store) => {
+      data.reminders.splice(idx, 1);
+      store.put(data);
+      renderReminders(data.reminders);
+      checkDot(selectedDateStr);
+    });
+  }
+
+  function uploadFile() {
+    const file = document.getElementById('fileInput').files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      getEntry((data, store) => {
+        data.files.push({ name: file.name, data: reader.result });
+        store.put(data);
+        renderFiles(data.files);
+        checkDot(selectedDateStr);
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function deleteFile(idx) {
+    getEntry((data, store) => {
+      data.files.splice(idx, 1);
+      store.put(data);
+      renderFiles(data.files);
+      checkDot(selectedDateStr);
+    });
+  }
+
+  function renderReminders(list) {
+    const cont = document.getElementById('reminderList');
+    cont.innerHTML = list.map((r, i) => `
+      <div class="rem-item">
+        <span>📌 ${r}</span>
+        <button class="del-btn" onclick="deleteReminder(${i})">✕</button>
+      </div>
+    `).join('');
+  }
+
+  function renderFiles(list) {
+    const cont = document.getElementById('fileList');
+    cont.innerHTML = list.map((f, i) => `
+      <div class="file-chip">
+        <a href="${f.data}" download="${f.name}">📄 ${f.name}</a>
+        <button class="del-btn" onclick="deleteFile(${i})">✕</button>
+      </div>
+    `).join('');
+  }
+
+  function checkDot(dStr) {
+    if(!db) return;
+    const tx = db.transaction("entries", "readonly");
+    const req = tx.objectStore("entries").get(dStr);
+    req.onsuccess = () => {
+      const d = req.result;
+      const dot = document.getElementById(`dot-${dStr}`);
+      if(dot) {
+        const hasContent = d && (d.notes || (d.reminders && d.reminders.length) || (d.files && d.files.length));
+        dot.style.display = hasContent ? 'block' : 'none';
+      }
+    };
+  }
+</script>
+</body>
+</html>
