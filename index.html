@@ -51,7 +51,7 @@
       <button class="nav-btn" onclick="changeMonth(-1)">❮</button>
       <div>
         <h2 id="engMonthYear"></h2>
-        <div class="kerala-date-head" id="malMonthYear"></div><div class="kerala-date-head" id="locationInfo"></div>
+        <div class="kerala-date-head" id="malMonthYear"></div>
       </div>
       <button class="nav-btn" onclick="changeMonth(1)">❯</button>
     </div>
@@ -95,16 +95,6 @@
   let currDate = new Date();
   let selectedDateStr = new Date().toISOString().split('T')[0];
   let db;
-  const CAL_LAT=11.226834296966167;
-  const CAL_LON=76.2155041702179;
-  const CAL_TZ='Asia/Kolkata';
-
-  // Google Cloud Console -> Google Auth Platform -> Clients
-  // Create a Web application OAuth Client ID and paste it here.
-  const GOOGLE_CLIENT_ID='YOUR_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com';
-  const GOOGLE_SCOPE='https://www.googleapis.com/auth/calendar.readonly';
-  let googleTokenClient=null;
-  let googleAccessToken=null;
 
   const request = indexedDB.open("MalayalamCalendarDB", 1);
   request.onupgradeneeded = e => {
@@ -130,11 +120,10 @@
 
   function degNorm(x) { return ((x % 360) + 360) % 360; }
 
-  // Low-precision astronomical solar longitude.
-  // Malayalam month is based on the Sun's sidereal zodiac position.
+  // Astronomical Calculations
   function solarTropicalLongitude(date) {
-    const y=date.getFullYear(), m=date.getMonth()+1, d=date.getDate();
-    const h=date.getHours()+date.getMinutes()/60+date.getSeconds()/3600;
+    const y=date.getUTCFullYear(), m=date.getUTCMonth()+1, d=date.getUTCDate();
+    const h=date.getUTCHours()+date.getUTCMinutes()/60+date.getUTCSeconds()/3600;
     const dt=(Date.UTC(y,m-1,d,h)-Date.UTC(2000,0,1,12))/86400000;
     const L=degNorm(280.460+0.9856474*dt);
     const g=degNorm(357.528+0.9856003*dt)*Math.PI/180;
@@ -142,19 +131,19 @@
   }
 
   function moonTropicalLongitude(date) {
-    const y=date.getFullYear(),m=date.getMonth()+1,d=date.getDate();
-    const h=date.getHours()+date.getMinutes()/60+date.getSeconds()/3600;
+    const y=date.getUTCFullYear(),m=date.getUTCMonth()+1,d=date.getUTCDate();
+    const h=date.getUTCHours()+date.getUTCMinutes()/60+date.getUTCSeconds()/3600;
     const dt=(Date.UTC(y,m-1,d,h)-Date.UTC(2000,0,1,12))/86400000;
     const L=degNorm(218.316+13.176396*dt);
     const M=degNorm(134.963+13.064993*dt)*Math.PI/180;
     const F=degNorm(93.272+13.229350*dt)*Math.PI/180;
-    return degNorm(L+6.289*Math.sin(M)-3.858*Math.sin((L-134.963)*Math.PI/180)
-      +0.214*Math.sin(2*M)-0.110*Math.sin(F));
+    return degNorm(L+6.289*Math.sin(M)-3.858*Math.sin((L-134.963)*Math.PI/180) + 0.214*Math.sin(2*M)-0.110*Math.sin(F));
   }
 
+  // Lahiri Ayanamsa Approximation
   function approxAyanamsa(date) {
-    const y=date.getFullYear()+(date.getMonth()+1-0.5)/12;
-    return 23.8530556+0.013968*(y-2000);
+    const y=date.getUTCFullYear()+(date.getUTCMonth()+1-0.5)/12;
+    return 23.853 + 0.013968*(y-2000);
   }
 
   function siderealSun(date) {
@@ -165,202 +154,132 @@
     return degNorm(moonTropicalLongitude(date)-approxAyanamsa(date));
   }
 
-  /*
-   * Malayalam solar-calendar rule:
-   * - Each month begins at Sun's entry into the corresponding sidereal Rashi.
-   * - The astronomical ingress is an instant, not simply a Gregorian date.
-   * - For the civil Malayalam date, an ingress before/at noon is taken as
-   *   day 1 on that date; an ingress after noon starts day 1 on the next date.
-   *
-   * This also allows legitimate 29-32 day Malayalam months. A 32-day month
-   * is NOT itself a bug. What is a bug is a repeated date 1 or a date jumping
-   * backwards.
-   */
-  function rashiGregorianMonth(rashiIndex) {
-    // Mesha=0 -> April(3), Vrishabha=1 -> May(4), ...
-    // Makara=9 -> January(0) of the following Gregorian year.
-    return (rashiIndex + 3) % 12;
-  }
-
-  function sankrantiAstronomical(year, rashiIndex) {
-    const gMonth=rashiGregorianMonth(rashiIndex);
-    const searchYear=(rashiIndex>=9) ? year+1 : year;
-
-    const start=new Date(searchYear,gMonth,1,0,0,0,0);
-    const end=new Date(searchYear,gMonth+1,2,0,0,0,0);
-    const target=rashiIndex*30;
-
-    // Find a bracket where the normalized sidereal longitude crosses target.
-    let prev=start;
-    let prevDiff=((siderealSun(prev)-target+180)%360)-180;
-
-    for(let t=start.getTime()+6*3600000;t<=end.getTime();t+=6*3600000){
-      const cur=new Date(t);
-      const curDiff=((siderealSun(cur)-target+180)%360)-180;
-
-      // Around a Rashi boundary, signed difference changes through zero.
-      if(prevDiff<=0 && curDiff>=0) {
-        let lo=prev.getTime(), hi=cur.getTime();
-
-        for(let i=0;i<35;i++){
-          const mid=(lo+hi)/2;
-          const md=new Date(mid);
-          const mdiff=((siderealSun(md)-target+180)%360)-180;
-          if(mdiff>=0) hi=mid; else lo=mid;
-        }
-        return new Date((lo+hi)/2);
+  // Exact Sankranti Finder using Binary Search
+  function getExactSankrantiTime(targetDeg, approxDate) {
+    let low = approxDate.getTime() - 2 * 86400000;
+    let high = approxDate.getTime() + 2 * 86400000;
+    
+    for(let i=0; i<30; i++) {
+      let mid = (low + high) / 2;
+      let lon = siderealSun(new Date(mid));
+      let diff = ((lon - targetDeg + 180) % 360) - 180;
+      if (diff < 0) {
+        low = mid;
+      } else {
+        high = mid;
       }
-
-      prev=cur;
-      prevDiff=curDiff;
     }
-
-    // Fallback should almost never be reached.
-    return start;
+    return new Date((low + high) / 2);
   }
 
-  function sankrantiCivilDate(year, rashiIndex) {
-    const instant=sankrantiAstronomical(year,rashiIndex);
-    const y=instant.getFullYear();
-    const m=instant.getMonth();
-    const d=instant.getDate();
+  // Determines the exact civil starting day of a Malayalam month based on Kerala 1:12 PM (Aparahna) rule
+  function getCivilMonthStart(targetRashi, gYear) {
+    const gMonths = [3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 1, 2]; // Medam(Apr) to Meenam(Mar)
+    const targetDeg = targetRashi * 30;
+    
+    let approxY = gYear;
+    let approxM = gMonths[targetRashi];
+    if (targetRashi >= 9) approxY = gYear + 1; // Makaram, Kumbham, Meenam occur in next Gregorian year of solar cycle
 
-    // Malayalam traditional civil-date convention: if Sankranti is after
-    // local noon, the next Gregorian date becomes Malayalam day 1.
-    const civilDay = instant.getHours()+instant.getMinutes()/60+instant.getSeconds()/3600 > 12
-      ? d+1 : d;
+    const approxDate = new Date(approxY, approxM, 15, 12, 0);
+    const sankrantiMoment = getExactSankrantiTime(targetDeg, approxDate);
 
-    return new Date(y,m,civilDay);
+    // Kerala Rule: If Sankranti occurs before Aparahna limit (approx 13:12 IST), Day 1 is on the same day. Else next day.
+    const istHours = sankrantiMoment.getUTCHours() + 5.5 + sankrantiMoment.getUTCMinutes() / 60;
+    const startDay = new Date(sankrantiMoment.getFullYear(), sankrantiMoment.getMonth(), sankrantiMoment.getDate());
+    
+    if (istHours > 13.2) {
+      startDay.setDate(startDay.getDate() + 1);
+    }
+    return startDay;
   }
 
   function getMalayalamInfo(date) {
-    const dateOnly=new Date(date.getFullYear(),date.getMonth(),date.getDate());
+    const gYear = date.getFullYear();
+    const curTime = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
 
-    // Determine the month from its civil Sankranti boundaries, rather than
-    // assigning a date directly from a modulo formula.
-    let foundIndex=null;
-    let monthStart=null;
+    // Check solar months in the neighborhood
+    let activeRashi = 0;
+    let activeStart = null;
+    let activeKollam = gYear - 824;
 
-    for(let i=0;i<12;i++){
-      const candidate=sankrantiCivilDate(
-        dateOnly.getFullYear()-(i>=9 ? 1 : 0), i
-      );
-      const next=sankrantiCivilDate(
-        dateOnly.getFullYear()-((i+1)>=9 ? 1 : 0), (i+1)%12
-      );
+    const baseYears = [gYear - 1, gYear, gYear + 1];
+    let allTransitions = [];
 
-      if(candidate<=dateOnly && dateOnly<next){
-        foundIndex=i;
-        monthStart=candidate;
+    for (let yr of baseYears) {
+      for (let r = 0; r < 12; r++) {
+        const cStart = getCivilMonthStart(r, yr);
+        allTransitions.push({ rashi: r, start: cStart, gYearRef: yr });
+      }
+    }
+
+    allTransitions.sort((a, b) => a.start.getTime() - b.start.getTime());
+
+    for (let i = 0; i < allTransitions.length; i++) {
+      const t = allTransitions[i];
+      const nextT = allTransitions[i + 1];
+      if (curTime >= t.start.getTime() && (!nextT || curTime < nextT.start.getTime())) {
+        activeRashi = t.rashi;
+        activeStart = t.start;
+        // Kollavarsham changes on Chingam 1 (Rashi 4)
+        activeKollam = t.gYearRef - 824;
+        if (t.rashi < 4) activeKollam -= 1;
         break;
       }
     }
 
-    // Handle year-boundary cases by checking the previous Meena/Mesha cycle.
-    if(foundIndex===null){
-      for(let i=0;i<12;i++){
-        const candidate=sankrantiCivilDate(dateOnly.getFullYear()-1-(i>=9 ? 1 : 0),i);
-        const next=sankrantiCivilDate(dateOnly.getFullYear()-((i+1)>=9 ? 1 : 0),(i+1)%12);
-        if(candidate<=dateOnly && dateOnly<next){
-          foundIndex=i;
-          monthStart=candidate;
-          break;
-        }
-      }
-    }
-
-    if(foundIndex===null){
-      // Safe fallback based on sidereal longitude.
-      foundIndex=Math.floor(siderealSun(dateOnly)/30);
-      monthStart=sankrantiCivilDate(dateOnly.getFullYear()-(foundIndex>=9?1:0),foundIndex);
-    }
-
-    const malDate=Math.floor((dateOnly-monthStart)/86400000)+1;
-    const moon=siderealMoon(dateOnly);
-    const starIndex=Math.min(26,Math.floor(moon/(360/27)));
-
-    // Kollavarsham changes at Chingam (Simha) civil day 1.
-    const chingamStart=sankrantiCivilDate(dateOnly.getFullYear(),4);
-    const kollavarsham=dateOnly>=chingamStart
-      ? dateOnly.getFullYear()-824
-      : dateOnly.getFullYear()-825;
+    const malDate = Math.floor((curTime - activeStart.getTime()) / 86400000) + 1;
+    
+    // Nakshatram at 06:00 AM IST
+    const morningDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 30); // 00:30 UTC = 06:00 IST
+    const moon = siderealMoon(morningDate);
+    const starIndex = Math.floor(degNorm(moon) / (360 / 27)) % 27;
 
     return {
-      star:stars[starIndex],
-      malDate:malDate,
-      malMonth:malMonths[foundIndex],
-      kollavarsham,
-      sunrise:solarEvent(dateOnly,true),
-      sunset:solarEvent(dateOnly,false)
-    };
-  }
-
-  function getMalayalamInfo(date) {
-    const sun=siderealSun(date);
-    const monthIndex=Math.floor(sun/30);
-    let monthStart=sankrantiApprox(date.getFullYear(), monthIndex);
-
-    if(monthStart > date) {
-      monthStart=sankrantiApprox(date.getFullYear()-1, monthIndex);
-    }
-
-    const dateOnly=new Date(date.getFullYear(),date.getMonth(),date.getDate());
-    const startOnly=new Date(monthStart.getFullYear(),monthStart.getMonth(),monthStart.getDate());
-    const malDate=Math.floor((dateOnly-startOnly)/86400000)+1;
-
-    const moon=siderealMoon(date);
-    const starIndex=Math.min(26,Math.floor(moon/(360/27)));
-
-    const chingamStart=sankrantiApprox(date.getFullYear(),4);
-    const kollavarsham=date >= chingamStart ? date.getFullYear()-824 : date.getFullYear()-825;
-
-    return {
-      star:stars[starIndex],
-      malDate:Math.max(1,malDate),
-      malMonth:malMonths[monthIndex],
-      kollavarsham,
-      sunrise:solarEvent(date,true),
-      sunset:solarEvent(date,false)
+      star: stars[starIndex],
+      malDate: malDate,
+      malMonth: malMonths[activeRashi],
+      kollavarsham: activeKollam
     };
   }
 
   function renderCalendar() {
-    const year=currDate.getFullYear();
-    const month=currDate.getMonth();
+    const year = currDate.getFullYear();
+    const month = currDate.getMonth();
 
     document.getElementById('engMonthYear').innerText =
-      currDate.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+      currDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
-    const midInfo=getMalayalamInfo(new Date(year,month,15));
+    const midInfo = getMalayalamInfo(new Date(year, month, 15));
     document.getElementById('malMonthYear').innerText =
       `കൊല്ലവർഷം ${midInfo.kollavarsham} ${midInfo.malMonth}`;
 
-    const firstDay=new Date(year,month,1).getDay();
-    const lastDate=new Date(year,month+1,0).getDate();
-    const grid=document.getElementById('calendarGrid');
-    const frag=document.createDocumentFragment();
+    const firstDay = new Date(year, month, 1).getDay();
+    const lastDate = new Date(year, month + 1, 0).getDate();
+    const grid = document.getElementById('calendarGrid');
+    const frag = document.createDocumentFragment();
 
-    for(let i=0;i<firstDay;i++){
-      const el=document.createElement('div');
-      el.className='day-cell other-month';
+    for (let i = 0; i < firstDay; i++) {
+      const el = document.createElement('div');
+      el.className = 'day-cell other-month';
       frag.appendChild(el);
     }
 
-    const dates=[];
-    for(let day=1;day<=lastDate;day++){
-      const d=new Date(year,month,day);
-      const dStr=localDateString(d);
-      const malInfo=getMalayalamInfo(d);
-      const cell=document.createElement('div');
+    const dates = [];
+    for (let day = 1; day <= lastDate; day++) {
+      const d = new Date(year, month, day);
+      const dStr = localDateString(d);
+      const malInfo = getMalayalamInfo(d);
+      const cell = document.createElement('div');
 
-      cell.className=`day-cell ${dStr===selectedDateStr?'selected':''}`;
-      cell.id=`cell-${dStr}`;
-      cell.innerHTML=`
+      cell.className = `day-cell ${dStr === selectedDateStr ? 'selected' : ''}`;
+      cell.id = `cell-${dStr}`;
+      cell.innerHTML = `
         <div class="day-num">${day}</div>
         <div class="mal-num">${malInfo.malDate}</div>
         <div class="star-name">${malInfo.star}</div>
         <span class="dot-badge" id="dot-${dStr}" style="display:none"></span>`;
-      cell.onclick=()=>selectDate(dStr);
+      cell.onclick = () => selectDate(dStr);
 
       frag.appendChild(cell);
       dates.push(dStr);
@@ -371,7 +290,7 @@
   }
 
   function changeMonth(step) {
-    currDate = new Date(currDate.getFullYear(), currDate.getMonth()+step, 1);
+    currDate = new Date(currDate.getFullYear(), currDate.getMonth() + step, 1);
     renderCalendar();
   }
 
@@ -386,10 +305,8 @@
     const m = getMalayalamInfo(d);
     document.getElementById('panchangamInfo').innerHTML = `
       <strong>${d.toDateString()}</strong><br>
-      മലയാള തീയതി: ${m.kollavarsham} ${m.malMonth} ${m.malDate}<br>
-      നക്ഷത്രം: <strong>${m.star}</strong><br>
-      സൂര്യോദയം: <strong>${fmtTime(m.sunrise)}</strong> &nbsp;
-      സൂര്യാസ്തമയം: <strong>${fmtTime(m.sunset)}</strong>
+      മലയാള തീയതി: <strong>${m.kollavarsham} ${m.malMonth} ${m.malDate}</strong><br>
+      നക്ഷത്രം: <strong>${m.star}</strong>
     `;
 
     const tx = db.transaction("entries", "readonly");
@@ -423,7 +340,7 @@
 
   function addReminder() {
     const txt = document.getElementById('remInput').value;
-    if(!txt) return;
+    if (!txt) return;
     getEntry((data, store) => {
       data.reminders.push(txt);
       store.put(data);
@@ -444,7 +361,7 @@
 
   function uploadFile() {
     const file = document.getElementById('fileInput').files[0];
-    if(!file) return;
+    if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
       getEntry((data, store) => {
@@ -487,13 +404,13 @@
   }
 
   function checkDot(dStr) {
-    if(!db) return;
+    if (!db) return;
     const tx = db.transaction("entries", "readonly");
     const req = tx.objectStore("entries").get(dStr);
     req.onsuccess = () => {
       const d = req.result;
       const dot = document.getElementById(`dot-${dStr}`);
-      if(dot) {
+      if (dot) {
         const hasContent = d && (d.notes || (d.reminders && d.reminders.length) || (d.files && d.files.length));
         dot.style.display = hasContent ? 'block' : 'none';
       }
@@ -502,219 +419,93 @@
 
   // 1. Export Current Month
   async function exportCurrentMonthICS() {
-    const year=currDate.getFullYear();
-    const month=currDate.getMonth();
-    const lastDate=new Date(year,month+1,0).getDate();
+    const year = currDate.getFullYear();
+    const month = currDate.getMonth();
+    const lastDate = new Date(year, month + 1, 0).getDate();
 
-    const allEntries=await getAllEntries();
-    const entryMap={};
-    allEntries.forEach(e=>entryMap[e.date]=e);
+    const allEntries = await getAllEntries();
+    const entryMap = {};
+    allEntries.forEach(e => entryMap[e.date] = e);
 
-    let icsContent="BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Malayalam Calendar PWA//EN\nCALSCALE:GREGORIAN\nMETHOD:PUBLISH\n";
+    let icsContent = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Malayalam Calendar PWA//EN\nCALSCALE:GREGORIAN\nMETHOD:PUBLISH\n";
 
-    for(let day=1;day<=lastDate;day++){
-      const d=new Date(year,month,day);
-      const dStr=localDateString(d);
-      const mInfo=getMalayalamInfo(d);
-      let desc=`കൊല്ലവർഷം: ${mInfo.kollavarsham} ${mInfo.malMonth} ${mInfo.malDate}\\nനക്ഷത്രം: ${mInfo.star}`;
-      const entry=entryMap[dStr];
+    for (let day = 1; day <= lastDate; day++) {
+      const d = new Date(year, month, day);
+      const dStr = localDateString(d);
+      const mInfo = getMalayalamInfo(d);
+      let desc = `കൊല്ലവർഷം: ${mInfo.kollavarsham} ${mInfo.malMonth} ${mInfo.malDate}\\nനക്ഷത്രം: ${mInfo.star}`;
+      const entry = entryMap[dStr];
 
-      if(entry?.notes) desc+=`\\nകുറിപ്പ്: ${entry.notes.replace(/\n/g,'\\n')}`;
-      if(entry?.reminders?.length) desc+=`\\nറീമൈൻഡറുകൾ: ${entry.reminders.join(', ')}`;
+      if (entry?.notes) desc += `\\nകുറിപ്പ്: ${entry.notes.replace(/\n/g, '\\n')}`;
+      if (entry?.reminders?.length) desc += `\\nറീമൈൻഡറുകൾ: ${entry.reminders.join(', ')}`;
 
-      const nextDate=new Date(year,month,day+1);
-      const isoStart=dateICS(d);
-      const isoEnd=dateICS(nextDate);
+      const nextDate = new Date(year, month, day + 1);
+      const isoStart = dateICS(d);
+      const isoEnd = dateICS(nextDate);
 
-      icsContent+="BEGIN:VEVENT\n";
-      icsContent+=`UID:malcal-${dStr}@pwa.local\n`;
-      icsContent+=`DTSTART;VALUE=DATE:${isoStart}\n`;
-      icsContent+=`DTEND;VALUE=DATE:${isoEnd}\n`;
-      icsContent+=`SUMMARY:${mInfo.malMonth} ${mInfo.malDate} - ${mInfo.star}\n`;
-      icsContent+=`DESCRIPTION:${icsEscape(desc)}\n`;
-      icsContent+="END:VEVENT\n";
+      icsContent += "BEGIN:VEVENT\n";
+      icsContent += `UID:malcal-${dStr}@pwa.local\n`;
+      icsContent += `DTSTART;VALUE=DATE:${isoStart}\n`;
+      icsContent += `DTEND;VALUE=DATE:${isoEnd}\n`;
+      icsContent += `SUMMARY:${mInfo.malMonth} ${mInfo.malDate} - ${mInfo.star}\n`;
+      icsContent += `DESCRIPTION:${icsEscape(desc)}\n`;
+      icsContent += "END:VEVENT\n";
     }
 
-    icsContent+="END:VCALENDAR";
-    downloadICSFile(icsContent,`Malayalam_Calendar_${year}_${month+1}.ics`);
+    icsContent += "END:VCALENDAR";
+    downloadICSFile(icsContent, `Malayalam_Calendar_${year}_${month + 1}.ics`);
   }
 
   // 2. Export Entire Year
   async function exportCurrentYearICS() {
-    const year=currDate.getFullYear();
-    const allEntries=await getAllEntries();
-    const entryMap={};
-    allEntries.forEach(e=>entryMap[e.date]=e);
+    const year = currDate.getFullYear();
+    const allEntries = await getAllEntries();
+    const entryMap = {};
+    allEntries.forEach(e => entryMap[e.date] = e);
 
-    let icsContent="BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Malayalam Calendar Full Year//EN\nCALSCALE:GREGORIAN\nMETHOD:PUBLISH\n";
+    let icsContent = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Malayalam Calendar Full Year//EN\nCALSCALE:GREGORIAN\nMETHOD:PUBLISH\n";
 
-    for(let m=0;m<12;m++){
-      const lastDay=new Date(year,m+1,0).getDate();
-      for(let d=1;d<=lastDay;d++){
-        const date=new Date(year,m,d);
-        const dStr=localDateString(date);
-        icsContent+=makeEvent(date,entryMap[dStr]);
+    for (let m = 0; m < 12; m++) {
+      const lastDay = new Date(year, m + 1, 0).getDate();
+      for (let d = 1; d <= lastDay; d++) {
+        const date = new Date(year, m, d);
+        const dStr = localDateString(date);
+        const mInfo = getMalayalamInfo(date);
+        const nextDate = new Date(year, m, d + 1);
+
+        let desc = `കൊല്ലവർഷം: ${mInfo.kollavarsham} ${mInfo.malMonth} ${mInfo.malDate}\\nനക്ഷത്രം: ${mInfo.star}`;
+        const entry = entryMap[dStr];
+        if (entry?.notes) desc += `\\nകുറിപ്പ്: ${entry.notes.replace(/\n/g, '\\n')}`;
+        if (entry?.reminders?.length) desc += `\\nറീമൈൻഡറുകൾ: ${entry.reminders.join(', ')}`;
+
+        icsContent += "BEGIN:VEVENT\n";
+        icsContent += `UID:malcal-${dStr}@pwa.local\n`;
+        icsContent += `DTSTART;VALUE=DATE:${dateICS(date)}\n`;
+        icsContent += `DTEND;VALUE=DATE:${dateICS(nextDate)}\n`;
+        icsContent += `SUMMARY:${icsEscape(mInfo.malMonth + ' ' + mInfo.malDate + ' - ' + mInfo.star)}\n`;
+        icsContent += `DESCRIPTION:${icsEscape(desc)}\n`;
+        icsContent += "END:VEVENT\n";
       }
     }
 
-    icsContent+="END:VCALENDAR";
-    downloadICSFile(icsContent,`Malayalam_Calendar_FullYear_${year}.ics`);
+    icsContent += "END:VCALENDAR";
+    downloadICSFile(icsContent, `Malayalam_Calendar_FullYear_${year}.ics`);
   }
 
   function getAllEntries() {
-    return new Promise((resolve,reject)=>{
-      const req=db.transaction("entries","readonly").objectStore("entries").getAll();
-      req.onsuccess=()=>resolve(req.result||[]);
-      req.onerror=()=>reject(req.error);
+    return new Promise((resolve, reject) => {
+      const req = db.transaction("entries", "readonly").objectStore("entries").getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
     });
   }
 
   function dateICS(d) {
-    return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+    return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
   }
 
   function icsEscape(s) {
-    return String(s).replace(/\\/g,'\\\\').replace(/\r?\n/g,'\\n').replace(/;/g,'\\;').replace(/,/g,'\\,');
-  }
-
-  function makeEvent(d,entry) {
-    const m=getMalayalamInfo(d);
-    const next=new Date(d.getFullYear(),d.getMonth(),d.getDate()+1);
-    let desc=`കൊല്ലവർഷം: ${m.kollavarsham} ${m.malMonth} ${m.malDate}\\nനക്ഷത്രം: ${m.star}`;
-
-    if(entry?.notes) desc+=`\\nകുറിപ്പ്: ${entry.notes}`;
-    if(entry?.reminders?.length) desc+=`\\nറീമൈൻഡറുകൾ: ${entry.reminders.join(', ')}`;
-
-    return `BEGIN:VEVENT\nUID:malcal-${localDateString(d)}@pwa.local\nDTSTART;VALUE=DATE:${dateICS(d)}\nDTEND;VALUE=DATE:${dateICS(next)}\nSUMMARY:${icsEscape(m.malMonth+' '+m.malDate+' - '+m.star)}\nDESCRIPTION:${icsEscape(desc)}\nEND:VEVENT\n`;
-  }
-
-
-  function setGoogleStatus(message, ok=false, error=false) {
-    const el=document.getElementById('googleStatus');
-    el.textContent=message;
-    el.className='info '+(ok?'google-ok':error?'google-error':'');
-  }
-
-  function googleLogin() {
-    if(!window.google?.accounts?.oauth2) {
-      setGoogleStatus('Google Identity Services load ആയിട്ടില്ല. Internet connection പരിശോധിക്കുക.',false,true);
-      return;
-    }
-
-    if(GOOGLE_CLIENT_ID.startsWith('YOUR_')) {
-      setGoogleStatus('ആദ്യം GOOGLE_CLIENT_ID code-ൽ നിങ്ങളുടെ Google OAuth Client ID ആയി മാറ്റണം.',false,true);
-      return;
-    }
-
-    googleTokenClient=google.accounts.oauth2.initTokenClient({
-      client_id:GOOGLE_CLIENT_ID,
-      scope:GOOGLE_SCOPE,
-      callback:(response)=>{
-        if(response.error) {
-          setGoogleStatus('Google authorization പരാജയപ്പെട്ടു.',false,true);
-          return;
-        }
-        googleAccessToken=response.access_token;
-        document.getElementById('googleLoginBtn').style.display='none';
-        document.getElementById('googleLogoutBtn').style.display='block';
-        document.getElementById('googleImportBtn').style.display='block';
-        setGoogleStatus('Google Calendar connected. ഇനി Import അമർത്താം.',true);
-      }
-    });
-
-    googleTokenClient.requestAccessToken({prompt:'consent'});
-  }
-
-  function googleLogout() {
-    if(googleAccessToken && window.google?.accounts?.oauth2) {
-      google.accounts.oauth2.revoke(googleAccessToken,()=>{});
-    }
-    googleAccessToken=null;
-    document.getElementById('googleLoginBtn').style.display='block';
-    document.getElementById('googleLogoutBtn').style.display='none';
-    document.getElementById('googleImportBtn').style.display='none';
-    setGoogleStatus('Google Calendar ബന്ധിപ്പിച്ചിട്ടില്ല.');
-  }
-
-  async function googleApi(path, params={}) {
-    if(!googleAccessToken) throw new Error('Google Calendar login required');
-    const url=new URL('https://www.googleapis.com/calendar/v3/'+path);
-    Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,v));
-    const res=await fetch(url,{headers:{Authorization:'Bearer '+googleAccessToken}});
-    if(res.status===401) {
-      googleAccessToken=null;
-      throw new Error('Google access token expired. വീണ്ടും Login ചെയ്യുക.');
-    }
-    if(!res.ok) throw new Error(await res.text());
-    return res.json();
-  }
-
-  async function importGoogleCalendar() {
-    try {
-      setGoogleStatus('Google Calendar events വായിക്കുന്നു...');
-      const calendars=await googleApi('users/me/calendarList',{maxResults:250});
-
-      let imported=0;
-      for(const cal of (calendars.items||[])) {
-        const data=await googleApi(`calendars/${encodeURIComponent(cal.id)}/events`,{
-          singleEvents:'true',
-          orderBy:'startTime',
-          maxResults:'2500',
-          timeMin:'2000-01-01T00:00:00+05:30',
-          timeMax:'2100-01-01T00:00:00+05:30'
-        });
-
-        for(const event of (data.items||[])) {
-          const start=event.start?.date || (event.start?.dateTime ? event.start.dateTime.slice(0,10) : null);
-          if(!start) continue;
-
-          const tx=db.transaction('entries','readwrite');
-          const store=tx.objectStore('entries');
-
-          await new Promise((resolve,reject)=>{
-            const req=store.get(start);
-            req.onsuccess=()=>{
-              const old=req.result||{date:start,notes:'',reminders:[],files:[]};
-              old.googleEvents=old.googleEvents||[];
-
-              const item={
-                id:event.id,
-                calendarId:cal.id,
-                calendarName:cal.summary||'Google Calendar',
-                summary:event.summary||'(No title)',
-                description:event.description||'',
-                location:event.location||'',
-                start:event.start,
-                end:event.end,
-                htmlLink:event.htmlLink||''
-              };
-
-              const idx=old.googleEvents.findIndex(x=>x.id===item.id && x.calendarId===item.calendarId);
-              if(idx>=0) old.googleEvents[idx]=item;
-              else old.googleEvents.push(item);
-
-              const put=store.put(old);
-              put.onsuccess=()=>{imported++;resolve()};
-              put.onerror=()=>reject(put.error);
-            };
-            req.onerror=()=>reject(req.error);
-          });
-        }
-      }
-
-      renderCalendar();
-      loadDateData(selectedDateStr);
-      setGoogleStatus(`${imported} Google Calendar event(s) local calendar-ലേക്ക് import ചെയ്തു.`,true);
-    } catch(err) {
-      console.error(err);
-      setGoogleStatus('Google Calendar import പരാജയപ്പെട്ടു: '+err.message,false,true);
-    }
-  }
-
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js').catch(err => console.warn('SW registration failed:', err));
-    });
+    return String(s).replace(/\\/g, '\\\\').replace(/\r?\n/g, '\\n').replace(/;/g, '\\;').replace(/,/g, '\\,');
   }
 
   function downloadICSFile(content, filename) {
