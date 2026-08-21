@@ -165,72 +165,134 @@
     return degNorm(moonTropicalLongitude(date)-approxAyanamsa(date));
   }
 
-  function expectedSankrantiMonth(rashiIndex) {
-    // 0=Mesha (Apr), ... 3=Karkidakam (Jul),
-    // 4=Simha (Aug), ... 11=Meena (Mar).
-    return rashiIndex <= 3 ? rashiIndex + 3 : rashiIndex - 4 + 7;
+  /*
+   * Malayalam solar-calendar rule:
+   * - Each month begins at Sun's entry into the corresponding sidereal Rashi.
+   * - The astronomical ingress is an instant, not simply a Gregorian date.
+   * - For the civil Malayalam date, an ingress before/at noon is taken as
+   *   day 1 on that date; an ingress after noon starts day 1 on the next date.
+   *
+   * This also allows legitimate 29-32 day Malayalam months. A 32-day month
+   * is NOT itself a bug. What is a bug is a repeated date 1 or a date jumping
+   * backwards.
+   */
+  function rashiGregorianMonth(rashiIndex) {
+    // Mesha=0 -> April(3), Vrishabha=1 -> May(4), ...
+    // Makara=9 -> January(0) of the following Gregorian year.
+    return (rashiIndex + 3) % 12;
   }
 
-  function sankrantiApprox(year, rashiIndex) {
-    let month = expectedSankrantiMonth(rashiIndex);
-    let searchYear = year;
+  function sankrantiAstronomical(year, rashiIndex) {
+    const gMonth=rashiGregorianMonth(rashiIndex);
+    const searchYear=(rashiIndex>=9) ? year+1 : year;
 
-    // JS month is 0-based. Meena (11) occurs in March of the following
-    // Gregorian year, while Mesha-Karkidakam occur Apr-Jul.
-    if (rashiIndex >= 11) searchYear = year + 1;
+    const start=new Date(searchYear,gMonth,1,0,0,0,0);
+    const end=new Date(searchYear,gMonth+1,2,0,0,0,0);
+    const target=rashiIndex*30;
 
-    const start = new Date(searchYear, month, 1);
-    const end = new Date(searchYear, month + 1, 10);
-    const target = rashiIndex * 30;
-    let best=start, bestErr=Infinity;
+    // Find a bracket where the normalized sidereal longitude crosses target.
+    let prev=start;
+    let prevDiff=((siderealSun(prev)-target+180)%360)-180;
 
-    for(let t=start.getTime(); t<=end.getTime(); t+=3*60*60*1000) {
-      const dt=new Date(t);
-      const lonNow=siderealSun(dt);
-      const diff=Math.abs(((lonNow-target+180)%360)-180);
-      if(diff<bestErr) { best=dt; bestErr=diff; }
+    for(let t=start.getTime()+6*3600000;t<=end.getTime();t+=6*3600000){
+      const cur=new Date(t);
+      const curDiff=((siderealSun(cur)-target+180)%360)-180;
+
+      // Around a Rashi boundary, signed difference changes through zero.
+      if(prevDiff<=0 && curDiff>=0) {
+        let lo=prev.getTime(), hi=cur.getTime();
+
+        for(let i=0;i<35;i++){
+          const mid=(lo+hi)/2;
+          const md=new Date(mid);
+          const mdiff=((siderealSun(md)-target+180)%360)-180;
+          if(mdiff>=0) hi=mid; else lo=mid;
+        }
+        return new Date((lo+hi)/2);
+      }
+
+      prev=cur;
+      prevDiff=curDiff;
     }
-    return best;
+
+    // Fallback should almost never be reached.
+    return start;
   }
 
-  // Location-specific sunrise/sunset using the standard NOAA solar
-  // approximation. The calendar date itself remains the Kerala solar date,
-  // while daily panchanga day boundaries use the supplied coordinates.
-  function solarEvent(date, isSunrise) {
-    const y=date.getFullYear(), m=date.getMonth(), d=date.getDate();
-    const N=Math.floor((Date.UTC(y,m,d)-Date.UTC(y,0,0))/86400000);
-    const lngHour=CAL_LON/15;
-    const zenith=90.8333;
-    const t=N+((isSunrise?6:18)-lngHour)/24;
-    const M=(0.9856*t)-3.289;
-    let L=M+(1.916*Math.sin(M*Math.PI/180))+
-      (0.020*Math.sin(2*M*Math.PI/180))+282.634;
-    L=degNorm(L);
-    let RA=Math.atan(0.91764*Math.tan(L*Math.PI/180))*180/Math.PI;
-    RA=degNorm(RA);
-    const Lquadrant=Math.floor(L/90)*90;
-    const RAquadrant=Math.floor(RA/90)*90;
-    RA=(RA+(Lquadrant-RAquadrant))/15;
-    const sinDec=0.39782*Math.sin(L*Math.PI/180);
-    const cosDec=Math.cos(Math.asin(sinDec));
-    const cosH=(Math.cos(zenith*Math.PI/180)-
-      sinDec*Math.sin(CAL_LAT*Math.PI/180))/
-      (cosDec*Math.cos(CAL_LAT*Math.PI/180));
-    if(cosH>1 || cosH<-1) return null;
-    let H=(isSunrise ? 360-Math.acos(cosH)*180/Math.PI :
-      Math.acos(cosH)*180/Math.PI)/15;
-    const T=H+RA-(0.06571*t)-6.622;
-    let UT=(T-lngHour)%24; if(UT<0) UT+=24;
-    // UTC -> IST
-    const istHours=UT+5.5;
-    const localHours=((istHours%24)+24)%24;
-    const hh=Math.floor(localHours);
-    const mm=Math.floor((localHours-hh)*60);
-    return {hh,mm};
+  function sankrantiCivilDate(year, rashiIndex) {
+    const instant=sankrantiAstronomical(year,rashiIndex);
+    const y=instant.getFullYear();
+    const m=instant.getMonth();
+    const d=instant.getDate();
+
+    // Malayalam traditional civil-date convention: if Sankranti is after
+    // local noon, the next Gregorian date becomes Malayalam day 1.
+    const civilDay = instant.getHours()+instant.getMinutes()/60+instant.getSeconds()/3600 > 12
+      ? d+1 : d;
+
+    return new Date(y,m,civilDay);
   }
 
-  function fmtTime(t) {
-    return t ? `${String(t.hh).padStart(2,'0')}:${String(t.mm).padStart(2,'0')}` : '--:--';
+  function getMalayalamInfo(date) {
+    const dateOnly=new Date(date.getFullYear(),date.getMonth(),date.getDate());
+
+    // Determine the month from its civil Sankranti boundaries, rather than
+    // assigning a date directly from a modulo formula.
+    let foundIndex=null;
+    let monthStart=null;
+
+    for(let i=0;i<12;i++){
+      const candidate=sankrantiCivilDate(
+        dateOnly.getFullYear()-(i>=9 ? 1 : 0), i
+      );
+      const next=sankrantiCivilDate(
+        dateOnly.getFullYear()-((i+1)>=9 ? 1 : 0), (i+1)%12
+      );
+
+      if(candidate<=dateOnly && dateOnly<next){
+        foundIndex=i;
+        monthStart=candidate;
+        break;
+      }
+    }
+
+    // Handle year-boundary cases by checking the previous Meena/Mesha cycle.
+    if(foundIndex===null){
+      for(let i=0;i<12;i++){
+        const candidate=sankrantiCivilDate(dateOnly.getFullYear()-1-(i>=9 ? 1 : 0),i);
+        const next=sankrantiCivilDate(dateOnly.getFullYear()-((i+1)>=9 ? 1 : 0),(i+1)%12);
+        if(candidate<=dateOnly && dateOnly<next){
+          foundIndex=i;
+          monthStart=candidate;
+          break;
+        }
+      }
+    }
+
+    if(foundIndex===null){
+      // Safe fallback based on sidereal longitude.
+      foundIndex=Math.floor(siderealSun(dateOnly)/30);
+      monthStart=sankrantiCivilDate(dateOnly.getFullYear()-(foundIndex>=9?1:0),foundIndex);
+    }
+
+    const malDate=Math.floor((dateOnly-monthStart)/86400000)+1;
+    const moon=siderealMoon(dateOnly);
+    const starIndex=Math.min(26,Math.floor(moon/(360/27)));
+
+    // Kollavarsham changes at Chingam (Simha) civil day 1.
+    const chingamStart=sankrantiCivilDate(dateOnly.getFullYear(),4);
+    const kollavarsham=dateOnly>=chingamStart
+      ? dateOnly.getFullYear()-824
+      : dateOnly.getFullYear()-825;
+
+    return {
+      star:stars[starIndex],
+      malDate:malDate,
+      malMonth:malMonths[foundIndex],
+      kollavarsham,
+      sunrise:solarEvent(dateOnly,true),
+      sunset:solarEvent(dateOnly,false)
+    };
   }
 
   function getMalayalamInfo(date) {
