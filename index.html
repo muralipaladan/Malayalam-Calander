@@ -1,668 +1,845 @@
 <!DOCTYPE html>
 <html lang="ml">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>മലയാളം കലണ്ടർ & പ്ലാനർ</title>
-  <meta name="theme-color" content="#b91c1c">
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
-    html, body { width: 100%; overflow-x: hidden; background: #f1f5f9; }
-    body { color: #1e293b; padding: 6px; }
-    
-    .container { 
-      width: 100%; 
-      max-width: 480px; 
-      margin: 0 auto; 
-      background: #fff; 
-      border-radius: 10px; 
-      box-shadow: 0 2px 10px rgba(0,0,0,0.06); 
-      overflow: hidden; 
-    }
-    
-    header { background: #b91c1c; color: white; padding: 10px 8px; text-align: center; }
-    .nav-btn { background: rgba(255,255,255,0.2); border: none; color: white; padding: 4px 10px; border-radius: 5px; cursor: pointer; font-size: 14px; font-weight: bold; flex-shrink: 0; }
-    
-    .nav-controls { display: flex; justify-content: space-between; align-items: center; gap: 4px; }
-    .select-group { display: flex; gap: 4px; flex: 1; justify-content: center; min-width: 0; }
-    .select-group select { 
-      background: white; 
-      color: #1e293b; 
-      border: 1px solid #cbd5e1; 
-      border-radius: 5px; 
-      padding: 4px 2px; 
-      font-size: 12px; 
-      font-weight: 600; 
-      max-width: 48%;
-      outline: none;
-    }
-    
-    .jump-bar { display: flex; gap: 4px; justify-content: space-between; align-items: center; margin-top: 6px; background: rgba(0,0,0,0.15); padding: 4px 6px; border-radius: 6px; }
-    .jump-bar input[type="date"] { background: white; border: none; border-radius: 4px; padding: 3px 4px; font-size: 11px; color: #1e293b; flex: 1; min-width: 0; }
-    .today-btn { background: #fff; color: #b91c1c; font-weight: 700; border: none; padding: 4px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>മലയാള പഞ്ചാംഗം കലണ്ടർ</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Malayalam:wght@400;600;700&family=Noto+Serif+Malayalam:wght@400;700&display=swap');
 
-    .kerala-date-head { font-size: 12px; opacity: 0.95; margin-top: 4px; font-weight: 500; }
-    
-    .weekdays { display: grid; grid-template-columns: repeat(7, 1fr); background: #f8fafc; text-align: center; font-weight: bold; font-size: 11px; padding: 6px 0; border-bottom: 1px solid #e2e8f0; }
-    .weekdays div:first-child { color: #dc2626; }
-    
-    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; padding: 4px; }
-    .day-cell { 
-      border: 1px solid #e2e8f0; 
-      border-radius: 5px; 
-      min-height: 48px; 
-      height: 52px;
-      display: flex; 
-      flex-direction: column; 
-      justify-content: space-between; 
-      padding: 2px 1px; 
-      text-align: center; 
-      cursor: pointer; 
-      font-size: 10px; 
-      position: relative; 
-      background: #fff; 
-      overflow: hidden;
-    }
-    .day-cell.selected { border: 2px solid #b91c1c; background: #fef2f2; font-weight: bold; }
-    .day-cell.today-cell { background: #fff7ed; border-color: #f97316; }
-    .day-cell.bday-cell { background: #fdf2f8; border-color: #ec4899; }
-    .day-cell.other-month { opacity: 0.2; }
-    
-    .day-num { font-size: 12px; font-weight: 700; line-height: 1.1; }
-    .mal-num { font-size: 9px; color: #7c2d12; font-weight: bold; line-height: 1; }
-    .star-name { font-size: 8px; color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; display: block; line-height: 1; }
-    .dot-badge { width: 4px; height: 4px; background: #b91c1c; border-radius: 50%; position: absolute; top: 2px; right: 2px; }
-    .bday-icon { position: absolute; top: 1px; left: 1px; font-size: 8px; line-height: 1; }
+  :root {
+    --gold: #C8952A;
+    --gold-light: #F0C96B;
+    --gold-pale: #FDF3DC;
+    --deep: #1A0F00;
+    --ink: #2C1A00;
+    --rust: #8B3A0F;
+    --cream: #FFFBF0;
+    --saffron: #FF9933;
+    --green-dark: #1B4332;
+    --green-mid: #2D6A4F;
+    --moon: #E8E0D0;
+    --shadow: rgba(26,15,0,0.14);
+    --reminder: #1A3A5C;
+    --reminder-light: #E8F0F8;
+  }
 
-    .details-panel { border-top: 2px solid #f1f5f9; padding: 10px 8px; }
-    .panchangam-box { background: #fffbeb; border: 1px solid #fef3c7; border-radius: 6px; padding: 8px; margin-bottom: 8px; font-size: 12px; line-height: 1.4; }
-    
-    .btn-group-export { display: flex; gap: 4px; margin-bottom: 8px; }
-    .btn-export { flex: 1; background: #047857; color: white; font-weight: 600; border: none; padding: 6px 4px; border-radius: 5px; font-size: 10px; cursor: pointer; text-align: center; }
-    .btn-export-year { background: #0f172a; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Noto Sans Malayalam', sans-serif; background: var(--cream); color: var(--ink); min-height: 100vh; }
 
-    .section-title { font-size: 12px; font-weight: 700; color: #475569; margin: 8px 0 4px; }
-    input, textarea, button { width: 100%; border-radius: 5px; border: 1px solid #cbd5e1; padding: 6px; font-size: 12px; }
-    textarea { resize: vertical; min-height: 50px; }
-    
-    .btn-main { background: #b91c1c; color: white; font-weight: 600; border: none; margin-top: 4px; cursor: pointer; }
-    .file-chip { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 5px 8px; border-radius: 5px; margin-top: 4px; font-size: 11px; word-break: break-all; }
-    .rem-item { display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-left: 3px solid #b91c1c; padding: 5px 6px; margin-top: 4px; font-size: 11px; }
-    .bday-item { background: #fdf2f8; border-left: 3px solid #db2777; color: #831843; font-weight: 600; padding: 5px 6px; margin-top: 4px; border-radius: 4px; font-size: 11px; }
-    .del-btn { color: #dc2626; cursor: pointer; font-weight: bold; border: none; background: transparent; width: auto; padding: 0 4px; }
-  </style>
+  /* HEADER */
+  .header {
+    background: linear-gradient(135deg, var(--deep) 0%, #3D1F00 60%, var(--rust) 100%);
+    padding: 18px 24px 14px; text-align: center; position: relative; overflow: hidden;
+  }
+  .header::before {
+    content: ''; position: absolute; inset: 0;
+    background: repeating-linear-gradient(45deg,transparent,transparent 20px,rgba(200,149,42,0.06) 20px,rgba(200,149,42,0.06) 40px);
+  }
+  .header-symbol { font-size: 26px; color: var(--gold-light); letter-spacing: 12px; margin-bottom: 4px; position: relative; }
+  .header h1 { font-family: 'Noto Serif Malayalam', serif; font-size: 24px; color: var(--gold-light); font-weight: 700; position: relative; }
+  .header .subtitle { font-size: 11px; color: rgba(240,201,107,0.7); margin-top: 3px; position: relative; }
+
+  /* NAV */
+  .nav-bar {
+    background: var(--deep); display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 14px; gap: 8px; position: sticky; top: 0; z-index: 200; border-bottom: 2px solid var(--gold);
+  }
+  .nav-btn {
+    background: transparent; border: 1px solid var(--gold); color: var(--gold-light);
+    padding: 5px 12px; border-radius: 4px; font-family: 'Noto Sans Malayalam', sans-serif;
+    font-size: 13px; cursor: pointer; transition: all 0.2s;
+  }
+  .nav-btn:hover { background: var(--gold); color: var(--deep); }
+  .nav-center { display: flex; align-items: center; gap: 8px; flex: 1; justify-content: center; }
+  .month-year-display { font-family: 'Noto Serif Malayalam', serif; font-size: 16px; font-weight: 700; color: var(--gold-light); min-width: 180px; text-align: center; }
+  .today-btn { background: var(--gold); border: none; color: var(--deep); padding: 5px 11px; border-radius: 4px; font-family: 'Noto Sans Malayalam', sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; }
+  .reminders-nav-btn { background: transparent; border: 1px solid #6699CC; color: #99CCFF; padding: 5px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+  .rem-badge { background: #FF5533; color: white; border-radius: 10px; padding: 1px 5px; font-size: 10px; font-weight: 700; display: none; }
+
+  /* CALENDAR CONTAINER */
+  .calendar-container { padding: 10px 8px 24px; max-width: 900px; margin: 0 auto; }
+
+  /* WEEKDAY HEADER */
+  .weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 2px; }
+  .wd { text-align: center; font-size: 11px; font-weight: 700; padding: 5px 2px; color: var(--rust); }
+  .wd.sunday { color: #CC3300; }
+  .wd.saturday { color: #0055AA; }
+
+  /* GRID — 7 columns, each row can expand */
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+
+  /* DAY CELL */
+  .day-cell {
+    background: white; border: 1px solid #E8DCC8; border-radius: 6px;
+    min-height: 82px; padding: 4px 4px 3px; cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s; position: relative;
+  }
+  .day-cell:hover { border-color: var(--gold); box-shadow: 0 2px 6px var(--shadow); z-index: 2; }
+  .day-cell.today { border: 2px solid var(--gold); background: var(--gold-pale); }
+  .day-cell.today .greg-date { background: var(--gold); color: white; }
+  .day-cell.sunday .greg-date { color: #CC3300; }
+  .day-cell.saturday .greg-date { color: #0055AA; }
+  .day-cell.other-month { background: #F8F4EC; opacity: 0.45; pointer-events: none; }
+  .day-cell.expanded { border: 2px solid var(--rust); background: #FFF8F0; z-index: 3; }
+  .day-cell.has-reminder::after {
+    content: '🔔'; position: absolute; top: 3px; right: 4px; font-size: 9px;
+  }
+
+  .greg-date { font-size: 14px; font-weight: 700; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 2px; color: var(--ink); }
+  .ml-date-cell { font-size: 9.5px; color: var(--rust); font-weight: 700; font-family: 'Noto Serif Malayalam', serif; margin-bottom: 2px; }
+  .nak-cell { font-size: 9px; color: var(--green-dark); font-weight: 600; line-height: 1.25; }
+  .nak-time-cell { font-size: 8px; color: #888; }
+  .tithi-cell { font-size: 8px; color: #5533AA; margin-top: 1px; }
+
+  /* EXPAND ROW — spans full 7 columns, inserted after the row */
+  .expand-row {
+    grid-column: 1 / -1;
+    background: white;
+    border: 1px solid #E8DCC8;
+    border-top: 3px solid var(--rust);
+    border-radius: 0 0 10px 10px;
+    box-shadow: 0 4px 16px var(--shadow);
+    animation: slideDown 0.2s ease;
+    overflow: hidden;
+  }
+  @keyframes slideDown { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+
+  .expand-header {
+    background: linear-gradient(90deg, var(--deep), #3D2000);
+    padding: 10px 16px; display: flex; justify-content: space-between; align-items: center;
+  }
+  .expand-header h2 { font-family: 'Noto Serif Malayalam', serif; color: var(--gold-light); font-size: 15px; }
+  .expand-close { background: transparent; border: 1px solid var(--gold); color: var(--gold); width: 26px; height: 26px; border-radius: 50%; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+
+  /* PANCHANGA GRID */
+  .pancha-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 12px 14px; }
+  @media (max-width: 600px) { .pancha-grid { grid-template-columns: 1fr 1fr; } }
+  .pancha-item { padding: 7px 10px; background: var(--cream); border-radius: 6px; border-left: 3px solid var(--gold); }
+  .pancha-item.nak { border-left-color: var(--green-mid); }
+  .pancha-item.tithi-i { border-left-color: #5533AA; }
+  .pancha-item.masam-i { border-left-color: var(--saffron); }
+  .pancha-item.sun-i { border-left-color: #CC6600; }
+  .pancha-item.moon-i { border-left-color: #336699; }
+  .p-label { font-size: 9.5px; color: #888; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
+  .p-val { font-family: 'Noto Serif Malayalam', serif; font-size: 14px; color: var(--ink); font-weight: 700; }
+  .p-sub { font-size: 10px; color: var(--rust); margin-top: 1px; }
+
+  /* DIVIDER */
+  .expand-divider { height: 1px; background: #E8DCC8; margin: 0 14px; }
+
+  /* REMINDERS SECTION */
+  .reminder-section { padding: 12px 14px 14px; }
+  .reminder-section h3 { font-size: 13px; color: var(--reminder); font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+
+  .reminder-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+  .reminder-item {
+    background: var(--reminder-light); border: 1px solid #BDD0E8; border-radius: 6px;
+    padding: 7px 10px; display: flex; align-items: flex-start; gap: 8px;
+  }
+  .reminder-item.done { opacity: 0.55; }
+  .reminder-item.done .rem-text { text-decoration: line-through; }
+  .rem-check { margin-top: 2px; accent-color: var(--reminder); cursor: pointer; width: 15px; height: 15px; flex-shrink: 0; }
+  .rem-info { flex: 1; }
+  .rem-text { font-size: 13px; color: var(--ink); line-height: 1.4; }
+  .rem-time-badge { font-size: 10px; background: var(--reminder); color: white; border-radius: 3px; padding: 1px 5px; margin-left: 6px; }
+  .rem-del { background: transparent; border: none; color: #CC4444; cursor: pointer; font-size: 15px; padding: 0 2px; flex-shrink: 0; }
+
+  /* ADD REMINDER FORM */
+  .add-reminder-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .rem-input {
+    flex: 1; min-width: 140px; padding: 7px 10px; border: 1px solid #BDD0E8; border-radius: 5px;
+    font-family: 'Noto Sans Malayalam', sans-serif; font-size: 13px; color: var(--ink);
+    background: white;
+  }
+  .rem-input:focus { outline: none; border-color: var(--reminder); box-shadow: 0 0 0 2px rgba(26,58,92,0.15); }
+  .rem-time-input { width: 108px; flex-shrink: 0; }
+  .rem-add-btn {
+    background: var(--reminder); color: white; border: none; border-radius: 5px;
+    padding: 7px 14px; font-family: 'Noto Sans Malayalam', sans-serif; font-size: 13px;
+    font-weight: 700; cursor: pointer; white-space: nowrap;
+  }
+  .rem-add-btn:hover { background: #254F7A; }
+  .rem-notif-toggle { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #555; margin-top: 5px; }
+  .rem-notif-toggle input { accent-color: var(--reminder); }
+
+  /* ALL REMINDERS MODAL */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 500;
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+  }
+  .modal-box {
+    background: white; border-radius: 12px; width: 100%; max-width: 520px; max-height: 80vh;
+    overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+  }
+  .modal-header { background: var(--deep); padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; }
+  .modal-header h2 { color: var(--gold-light); font-family: 'Noto Serif Malayalam', serif; font-size: 16px; }
+  .modal-close { background: transparent; border: 1px solid var(--gold); color: var(--gold); width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 16px; }
+  .modal-body { overflow-y: auto; padding: 14px 16px; flex: 1; }
+  .modal-date-group { margin-bottom: 14px; }
+  .modal-date-label { font-size: 12px; font-weight: 700; color: var(--rust); margin-bottom: 6px; padding-bottom: 3px; border-bottom: 1px solid #E8DCC8; }
+  .modal-empty { text-align: center; padding: 30px; color: #AAA; font-size: 14px; }
+
+  /* TOAST */
+  .toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: var(--deep); color: var(--gold-light); padding: 10px 20px;
+    border-radius: 20px; font-size: 13px; z-index: 999; border: 1px solid var(--gold);
+    animation: toastIn 0.3s ease; pointer-events: none;
+  }
+  @keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
+  /* ALARM OVERLAY */
+  .alarm-overlay {
+    position: fixed; inset: 0; background: rgba(26,15,0,0.85); z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .alarm-box {
+    background: white; border-radius: 16px; padding: 28px 32px; text-align: center;
+    max-width: 340px; width: 90%; border: 3px solid var(--gold);
+    box-shadow: 0 0 40px rgba(200,149,42,0.4);
+  }
+  .alarm-icon { font-size: 48px; margin-bottom: 10px; animation: ring 0.5s ease infinite alternate; }
+  @keyframes ring { from { transform: rotate(-10deg); } to { transform: rotate(10deg); } }
+  .alarm-title { font-family: 'Noto Serif Malayalam', serif; font-size: 18px; color: var(--ink); font-weight: 700; margin-bottom: 6px; }
+  .alarm-text { font-size: 14px; color: #555; margin-bottom: 16px; line-height: 1.5; }
+  .alarm-dismiss { background: var(--gold); border: none; border-radius: 8px; padding: 10px 28px; font-family: 'Noto Sans Malayalam', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; color: var(--deep); }
+
+  @media (max-width: 600px) {
+    .day-cell { min-height: 68px; }
+    .greg-date { font-size: 12px; width: 20px; height: 20px; }
+    .nak-cell { font-size: 8px; }
+    .ml-date-cell { font-size: 8.5px; }
+    .header h1 { font-size: 19px; }
+    .month-year-display { font-size: 13px; min-width: 140px; }
+    .pancha-grid { grid-template-columns: 1fr 1fr; }
+    .add-reminder-row { flex-direction: column; }
+    .rem-time-input { width: 100%; }
+  }
+</style>
 </head>
 <body>
 
-<div class="container">
-  <header>
-    <div class="nav-controls">
-      <button class="nav-btn" onclick="changeMonth(-1)">❮</button>
-      <div class="select-group">
-        <select id="monthSelect" onchange="onSelectChange()"></select>
-        <select id="yearSelect" onchange="onSelectChange()"></select>
-      </div>
-      <button class="nav-btn" onclick="changeMonth(1)">❯</button>
-    </div>
+<div class="header">
+  <div class="header-symbol">☀ ☽ ★</div>
+  <h1>മലയാള പഞ്ചാംഗം കലണ്ടർ</h1>
+  <div class="subtitle">Gregorian · Malayalam Date · Nakshatra · Tithi · Reminder — Drik Ganitha / Lahiri Ayanamsa</div>
+</div>
 
-    <div class="jump-bar">
-      <input type="date" id="quickDatePicker" onchange="onQuickDateSelect(this.value)">
-      <button class="today-btn" onclick="goToToday()">ഇന്ന് (Today)</button>
-    </div>
-
-    <div class="kerala-date-head" id="malMonthYear"></div>
-  </header>
-
-  <div class="weekdays">
-    <div>ഞാ</div><div>തി</div><div>ചൊ</div><div>ബു</div><div>വ്യാ</div><div>വെ</div><div>ശ</div>
+<div class="nav-bar">
+  <button class="nav-btn" id="prevMonth">◀ മുൻ</button>
+  <div class="nav-center">
+    <div class="month-year-display" id="monthYearDisplay">—</div>
+    <button class="today-btn" id="todayBtn">ഇന്ന്</button>
   </div>
+  <button class="reminders-nav-btn" id="allRemindersBtn">🔔 Reminders <span class="rem-badge" id="remBadge">0</span></button>
+  <button class="nav-btn" id="nextMonth">അടുത്ത ▶</button>
+</div>
 
-  <div class="calendar-grid" id="calendarGrid"></div>
+<div class="calendar-container">
+  <div class="weekdays">
+    <div class="wd sunday">ഞായർ</div>
+    <div class="wd">തിങ്കൾ</div>
+    <div class="wd">ചൊവ്വ</div>
+    <div class="wd">ബുധൻ</div>
+    <div class="wd">വ്യാഴം</div>
+    <div class="wd">വെള്ളി</div>
+    <div class="wd saturday">ശനി</div>
+  </div>
+  <div class="cal-grid" id="calGrid"></div>
+</div>
 
-  <div class="details-panel">
-    <div class="panchangam-box" id="panchangamInfo"></div>
-
-    <div class="btn-group-export">
-      <button class="btn-export" onclick="exportCurrentMonthICS()">📥 ഈ മാസം Export</button>
-      <button class="btn-export btn-export-year" onclick="exportCurrentYearICS()">📅 ഈ വർഷം Export</button>
+<!-- ALL REMINDERS MODAL -->
+<div class="modal-overlay" id="allRemModal" style="display:none">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2>🔔 എല്ലാ Reminders-ഉം</h2>
+      <button class="modal-close" id="allRemModalClose">✕</button>
     </div>
-
-    <div class="section-title">റീമൈൻഡറുകൾ & ജന്മദിനങ്ങൾ</div>
-    <div id="permanentBdayList"></div>
-    <div style="display: flex; gap: 4px; margin-top: 4px;">
-      <input type="text" id="remInput" placeholder="മറ്റ് റീമൈൻഡറുകൾ...">
-      <button class="btn-main" style="width: 55px; margin-top:0; font-size: 11px;" onclick="addReminder()">Add</button>
-    </div>
-    <div id="reminderList"></div>
-
-    <div class="section-title">കുറിപ്പുകൾ (Notes)</div>
-    <textarea id="noteInput" placeholder="കുറിപ്പുകൾ ഇവിടെ എഴുതാം..."></textarea>
-    <button class="btn-main" onclick="saveNote()">Save Note</button>
-
-    <div class="section-title">ഫയൽ അറ്റാച്ച്‌മെന്റുകൾ</div>
-    <input type="file" id="fileInput" onchange="uploadFile()">
-    <div id="fileList"></div>
+    <div class="modal-body" id="allRemModalBody"></div>
   </div>
 </div>
 
 <script>
-  const permanentBirthdays = [
-    { name: "Muraleedharan", birthYear: 1968, month: 4, day: 1 },
-    { name: "Sini", birthYear: 1972, month: 8, day: 12 },
-    { name: "Aiswarya", birthYear: 1996, month: 9, day: 11 },
-    { name: "Vishnu", birthYear: 1995, month: 7, day: 17 },
-    { name: "Sivasri", birthYear: 1998, month: 9, day: 10 },
-    { name: "Abijith", birthYear: 2002, month: 5, day: 30 },
-    { name: "Sivashree", birthYear: 2021, month: 10, day: 21 }
-  ];
+// ═══════════════════════════════════════════════════
+// ASTRONOMICAL CONSTANTS (Jean Meeus)
+// ═══════════════════════════════════════════════════
+const NAKSHATRA_NAMES = [
+  'അശ്വതി','ഭരണി','കാർത്തിക','രോഹിണി','മകയിരം','തിരുവാതിര',
+  'പുണർതം','പൂയം','ആയില്യം','മകം','പൂരം','ഉത്രം',
+  'അത്തം','ചിത്തിര','ചോതി','വിശാഖം','അനിഴം','തൃക്കേട്ട',
+  'മൂലം','പൂരാടം','ഉത്രാടം','തിരുവോണം','അവിട്ടം','ചതയം',
+  'പൂരൂരുട്ടാതി','ഉത്തൃട്ടാതി','രേവതി'
+];
+const TITHI_NAMES = [
+  'പ്രഥമ','ദ്വിതീയ','തൃതീയ','ചതുർഥി','പഞ്ചമി',
+  'ഷഷ്ഠി','സപ്തമി','അഷ്ടമി','നവമി','ദശമി',
+  'ഏകാദശി','ദ്വാദശി','ത്രയോദശി','ചതുർദശി','പൗർണ്ണമി',
+  'പ്രഥമ(K)','ദ്വിതീയ(K)','തൃതീയ(K)','ചതുർഥി(K)','പഞ്ചമി(K)',
+  'ഷഷ്ഠി(K)','സപ്തമി(K)','അഷ്ടമി(K)','നവമി(K)','ദശമി(K)',
+  'ഏകാദശി(K)','ദ്വാദശി(K)','ത്രയോദശി(K)','ചതുർദശി(K)','അമാവാസി'
+];
+const ML_MONTHS = ['ചിങ്ങം','കന്നി','തുലാം','വൃശ്ചികം','ധനു','മകരം','കുംഭം','മീനം','മേടം','ഇടവം','മിഥുനം','കർക്കിടകം'];
+const GREG_MONTHS_ML = ['ജനുവരി','ഫെബ്രുവരി','മാർച്ച്','ഏപ്രിൽ','മേയ്','ജൂൺ','ജൂലൈ','ഓഗസ്റ്റ്','സെപ്റ്റംബർ','ഒക്ടോബർ','നവംബർ','ഡിസംബർ'];
+const WEEKDAYS_ML = ['ഞായർ','തിങ്കൾ','ചൊവ്വ','ബുധൻ','വ്യാഴം','വെള്ളി','ശനി'];
 
-  const stars = ["അശ്വതി","ഭരണി","കാർത്തിക","രോഹിണി","മകയിരം","തിരുവാതിര","പുണർതം","പൂയം","ആയില്യം","മകം","പൂരം","ഉത്രം","അത്തം","ചിത്തിര","ചോതി","വിശാഖം","അനിഴം","തൃക്കേട്ട","മൂലം","പൂരാടം","ഉത്രാടം","തിരുവോണം","അവിട്ടം","ചതയം","പൂരുരുട്ടാതി","ഉത്രട്ടാതി","രേവതി"];
-  const malMonths = ["മേടം","ഇടവം","മിഥുനം","കർക്കടകം","ചിങ്ങം","കന്നി","തുലാം","വൃശ്ചികം","ധനു","മകരം","കുംഭം","മീനം"];
-  const engMonths = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  
-  let currDate = new Date();
-  let selectedDateStr = new Date().toISOString().split('T')[0];
-  let db;
+function kollaVarsham(year, month, day) {
+  return new Date(year, month, day) >= new Date(year, 7, 17) ? year - 824 : year - 825;
+}
+function julianDay(year, month, day, hour = 0) {
+  if (month <= 2) { year -= 1; month += 12; }
+  const A = Math.floor(year / 100);
+  const B = 2 - A + Math.floor(A / 4);
+  return Math.floor(365.25 * (year + 4716)) + Math.floor(30.6001 * (month + 1)) + day + B - 1524.5 + hour / 24;
+}
+function T(jd) { return (jd - 2451545.0) / 36525.0; }
+function norm(deg) { return ((deg % 360) + 360) % 360; }
 
-  const request = indexedDB.open("MalayalamCalendarDB", 1);
-  request.onupgradeneeded = e => {
-    db = e.target.result;
-    if(!db.objectStoreNames.contains("entries")) {
-      db.createObjectStore("entries", { keyPath: "date" });
-    }
-  };
-  request.onsuccess = e => {
-    db = e.target.result;
-    initDropdowns();
-    renderCalendar();
-    loadDateData(selectedDateStr);
-  };
+function sunLongitude(jd) {
+  const t = T(jd);
+  const L0 = norm(280.46646 + 36000.76983 * t + 0.0003032 * t * t);
+  const M = norm(357.52911 + 35999.05029 * t - 0.0001537 * t * t) * Math.PI / 180;
+  const C = (1.9146 - 0.004817*t - 0.000014*t*t)*Math.sin(M) + (0.019993-0.000101*t)*Math.sin(2*M) + 0.00029*Math.sin(3*M);
+  const sunLon = norm(L0 + C);
+  const omega = norm(125.04 - 1934.136 * t);
+  return norm(sunLon - 0.00569 - 0.00478 * Math.sin(omega * Math.PI / 180));
+}
+function moonLongitude(jd) {
+  const t = T(jd);
+  const L1 = norm(218.3164477 + 481267.88123421 * t);
+  const D = norm(297.8501921 + 445267.1114034 * t) * Math.PI / 180;
+  const M = norm(357.5291092 + 35999.0502909 * t) * Math.PI / 180;
+  const Mp = norm(134.9633964 + 477198.8675055 * t) * Math.PI / 180;
+  const F = norm(93.2720950 + 483202.0175233 * t) * Math.PI / 180;
+  let lon = L1;
+  lon += 6.288774*Math.sin(Mp); lon += 1.274027*Math.sin(2*D-Mp); lon += 0.658314*Math.sin(2*D);
+  lon += 0.213618*Math.sin(2*Mp); lon -= 0.185116*Math.sin(M); lon -= 0.114332*Math.sin(2*F);
+  lon += 0.058793*Math.sin(2*D-2*Mp); lon += 0.057066*Math.sin(2*D-M-Mp); lon += 0.053322*Math.sin(2*D+Mp);
+  lon += 0.045758*Math.sin(2*D-M); lon -= 0.040923*Math.sin(M-Mp); lon -= 0.034720*Math.sin(D);
+  lon -= 0.030383*Math.sin(M+Mp); lon += 0.015327*Math.sin(2*D-2*F); lon += 0.010980*Math.sin(Mp-2*F);
+  lon += 0.010675*Math.sin(4*D-Mp); lon += 0.010034*Math.sin(3*Mp); lon += 0.008548*Math.sin(4*D-2*Mp);
+  lon -= 0.007888*Math.sin(2*D+M-Mp); lon -= 0.006766*Math.sin(2*D+M); lon += 0.005185*Math.sin(Mp-D);
+  lon += 0.004877*Math.sin(4*D); lon += 0.004297*Math.sin(2*D-M-2*Mp); lon += 0.003102*Math.sin(2*D+2*Mp);
+  return norm(lon);
+}
+function lahiriAyanamsa(jd) { return 23.85 + 0.013611 * T(jd); }
+function nirayana(lon, jd) { return norm(lon - lahiriAyanamsa(jd)); }
 
-  function getBirthdaysForDate(year, month, day) {
-    return permanentBirthdays.filter(b => b.month === month && b.day === day).map(b => {
-      const age = year - b.birthYear;
-      return {
-        ...b,
-        age: age >= 0 ? age : null,
-        text: `🎂 ${b.name} (${b.birthYear}) - ${age >= 0 ? age + ' വയസ്സ്' : ''}`
-      };
-    });
+function getNakshatra(moonNir) {
+  const idx = Math.floor(moonNir / (360 / 27));
+  return { index: idx, name: NAKSHATRA_NAMES[idx] };
+}
+function findNakshatraEndJD(startJD, currentNakIdx) {
+  let lo = startJD, hi = startJD + 2.0;
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2;
+    const moonNir = nirayana(moonLongitude(mid), mid);
+    const boundary = (currentNakIdx + 1) * (360 / 27);
+    const diff = norm(moonNir - boundary);
+    if (diff > 180) hi = mid; else lo = mid;
   }
-
-  function initDropdowns() {
-    const mSelect = document.getElementById('monthSelect');
-    const ySelect = document.getElementById('yearSelect');
-    
-    mSelect.innerHTML = engMonths.map((m, i) => `<option value="${i}">${m}</option>`).join('');
-    
-    let yOptions = '';
-    for(let y = 1950; y <= 2060; y++) {
-      yOptions += `<option value="${y}">${y}</option>`;
-    }
-    ySelect.innerHTML = yOptions;
-  }
-
-  function updateDropdownValues() {
-    document.getElementById('monthSelect').value = currDate.getMonth();
-    document.getElementById('yearSelect').value = currDate.getFullYear();
-    document.getElementById('quickDatePicker').value = selectedDateStr;
-  }
-
-  function onSelectChange() {
-    const m = parseInt(document.getElementById('monthSelect').value);
-    const y = parseInt(document.getElementById('yearSelect').value);
-    currDate = new Date(y, m, 1);
-    renderCalendar();
-  }
-
-  function onQuickDateSelect(val) {
-    if(!val) return;
-    const d = dateFromString(val);
-    currDate = new Date(d.getFullYear(), d.getMonth(), 1);
-    selectDate(val);
-  }
-
-  function goToToday() {
-    const now = new Date();
-    currDate = new Date(now.getFullYear(), now.getMonth(), 1);
-    const todayStr = localDateString(now);
-    selectDate(todayStr);
-  }
-
-  function localDateString(d) {
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  }
-
-  function dateFromString(s) {
-    const [y,m,d] = s.split('-').map(Number);
-    return new Date(y, m-1, d);
-  }
-
-  function degNorm(x) { return ((x % 360) + 360) % 360; }
-
-  function solarTropicalLongitude(date) {
-    const y=date.getUTCFullYear(), m=date.getUTCMonth()+1, d=date.getUTCDate();
-    const h=date.getUTCHours()+date.getUTCMinutes()/60+date.getUTCSeconds()/3600;
-    const dt=(Date.UTC(y,m-1,d,h)-Date.UTC(2000,0,1,12))/86400000;
-    const L=degNorm(280.460+0.9856474*dt);
-    const g=degNorm(357.528+0.9856003*dt)*Math.PI/180;
-    return degNorm(L+1.915*Math.sin(g)+0.020*Math.sin(2*g));
-  }
-
-  function moonTropicalLongitude(date) {
-    const y=date.getUTCFullYear(),m=date.getUTCMonth()+1,d=date.getUTCDate();
-    const h=date.getUTCHours()+date.getUTCMinutes()/60+date.getUTCSeconds()/3600;
-    const dt=(Date.UTC(y,m-1,d,h)-Date.UTC(2000,0,1,12))/86400000;
-    const L=degNorm(218.316+13.176396*dt);
-    const M=degNorm(134.963+13.064993*dt)*Math.PI/180;
-    const F=degNorm(93.272+13.229350*dt)*Math.PI/180;
-    return degNorm(L+6.289*Math.sin(M)-3.858*Math.sin((L-134.963)*Math.PI/180) + 0.214*Math.sin(2*M)-0.110*Math.sin(F));
-  }
-
-  function approxAyanamsa(date) {
-    const y=date.getUTCFullYear()+(date.getUTCMonth()+1-0.5)/12;
-    return 23.853 + 0.013968*(y-2000);
-  }
-
-  function siderealSun(date) {
-    return degNorm(solarTropicalLongitude(date)-approxAyanamsa(date));
-  }
-
-  function siderealMoon(date) {
-    return degNorm(moonTropicalLongitude(date)-approxAyanamsa(date));
-  }
-
-  function getExactSankrantiTime(targetDeg, approxDate) {
-    let low = approxDate.getTime() - 2 * 86400000;
-    let high = approxDate.getTime() + 2 * 86400000;
-    for(let i=0; i<30; i++) {
-      let mid = (low + high) / 2;
-      let lon = siderealSun(new Date(mid));
-      let diff = ((lon - targetDeg + 180) % 360) - 180;
-      if (diff < 0) low = mid;
-      else high = mid;
-    }
-    return new Date((low + high) / 2);
-  }
-
-  function getCivilMonthStart(targetRashi, gYear) {
-    const gMonths = [3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 1, 2];
-    const targetDeg = targetRashi * 30;
-    let approxY = gYear;
-    let approxM = gMonths[targetRashi];
-    if (targetRashi >= 9) approxY = gYear + 1;
-
-    const approxDate = new Date(approxY, approxM, 15, 12, 0);
-    const sankrantiMoment = getExactSankrantiTime(targetDeg, approxDate);
-    const istHours = sankrantiMoment.getUTCHours() + 5.5 + sankrantiMoment.getUTCMinutes() / 60;
-    const startDay = new Date(sankrantiMoment.getFullYear(), sankrantiMoment.getMonth(), sankrantiMoment.getDate());
-    
-    if (istHours > 13.2) {
-      startDay.setDate(startDay.getDate() + 1);
-    }
-    return startDay;
-  }
-
-  function getMalayalamInfo(date) {
-    const gYear = date.getFullYear();
-    const curTime = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-
-    let activeRashi = 0;
-    let activeStart = null;
-    let activeKollam = gYear - 824;
-
-    const baseYears = [gYear - 1, gYear, gYear + 1];
-    let allTransitions = [];
-
-    for (let yr of baseYears) {
-      for (let r = 0; r < 12; r++) {
-        const cStart = getCivilMonthStart(r, yr);
-        allTransitions.push({ rashi: r, start: cStart, gYearRef: yr });
+  return (lo + hi) / 2;
+}
+function getTithi(sunNir, moonNir) { return Math.floor(norm(moonNir - sunNir) / 12); }
+function getMalayalamMonth(sunNir) {
+  const mlIdx = (Math.floor(sunNir / 30) + 8) % 12;
+  return { index: mlIdx, name: ML_MONTHS[mlIdx] };
+}
+function getMalayalamDate(jd) {
+  const sunNir = nirayana(sunLongitude(jd), jd);
+  const curRashi = Math.floor(sunNir / 30);
+  let sankramanJD = jd;
+  for (let step = 1; step <= 35; step++) {
+    const prevJD = jd - step;
+    const prevSunNir = nirayana(sunLongitude(prevJD), prevJD);
+    if (Math.floor(prevSunNir / 30) !== curRashi) {
+      let lo = prevJD, hi = prevJD + 1;
+      for (let i = 0; i < 30; i++) {
+        const mid = (lo + hi) / 2;
+        if (Math.floor(nirayana(sunLongitude(mid), mid) / 30) === curRashi) hi = mid; else lo = mid;
       }
+      sankramanJD = (lo + hi) / 2;
+      break;
     }
+  }
+  return Math.floor(jd - sankramanJD) + 1;
+}
+function jdToDate(jd) {
+  const z = Math.floor(jd + 0.5), f = jd + 0.5 - z;
+  let A = z < 2299161 ? z : (() => { const a = Math.floor((z-1867216.25)/36524.25); return z+1+a-Math.floor(a/4); })();
+  const B = A+1524, C = Math.floor((B-122.1)/365.25), D = Math.floor(365.25*C), E = Math.floor((B-D)/30.6001);
+  const day = B-D-Math.floor(30.6001*E), month = E<14?E-1:E-13, year = month>2?C-4716:C-4715;
+  return { year, month, day, hour: f*24 };
+}
+function formatIST(jd) {
+  const d = jdToDate(jd + 5.5/24);
+  const h = Math.floor(d.hour), m = Math.floor((d.hour-h)*60);
+  return `${h%12||12}:${String(m).padStart(2,'0')} ${h>=12?'PM':'AM'}`;
+}
 
-    allTransitions.sort((a, b) => a.start.getTime() - b.start.getTime());
+// ═══════════════════════════════════════════════════
+// COMPUTE DAY DATA
+// ═══════════════════════════════════════════════════
+const astroCache = {};
+function computeDayData(year, month, day) {
+  const key = `${year}-${month}-${day}`;
+  if (astroCache[key]) return astroCache[key];
+  const jd = julianDay(year, month+1, day, 6.5);
+  const sunNir = nirayana(sunLongitude(jd), jd);
+  const moonNir = nirayana(moonLongitude(jd), jd);
+  const nakData = getNakshatra(moonNir);
+  const tithiIdx = getTithi(sunNir, moonNir);
+  const mlMonth = getMalayalamMonth(sunNir);
+  const mlDate = getMalayalamDate(jd);
+  const nakEndJD = findNakshatraEndJD(jd - 0.5, nakData.index);
+  const nakEndIST = jdToDate(nakEndJD + 5.5/24);
+  let nakEndStr = (nakEndIST.day===day && nakEndIST.month===(month+1) && nakEndIST.year===year)
+    ? formatIST(nakEndJD) : 'നാളെ';
+  const data = {
+    sunNir: sunNir.toFixed(2), moonNir: moonNir.toFixed(2),
+    nakshatra: nakData.name, nakshatraIdx: nakData.index,
+    nakEnd: nakEndStr, nextNakshatra: NAKSHATRA_NAMES[(nakData.index+1)%27],
+    tithi: TITHI_NAMES[tithiIdx], tithiIdx,
+    mlMonth: mlMonth.name, mlDate,
+    kollaVarsham: kollaVarsham(year, month, day),
+    paksha: tithiIdx < 15 ? 'ശുക്ല പക്ഷം' : 'കൃഷ്ണ പക്ഷം'
+  };
+  astroCache[key] = data;
+  return data;
+}
 
-    for (let i = 0; i < allTransitions.length; i++) {
-      const t = allTransitions[i];
-      const nextT = allTransitions[i + 1];
-      if (curTime >= t.start.getTime() && (!nextT || curTime < nextT.start.getTime())) {
-        activeRashi = t.rashi;
-        activeStart = t.start;
-        activeKollam = t.gYearRef - 824;
-        if (t.rashi < 4) activeKollam -= 1;
-        break;
+// ═══════════════════════════════════════════════════
+// REMINDER STORAGE (LocalStorage)
+// ═══════════════════════════════════════════════════
+const REM_KEY = 'panchang_reminders_v2';
+function loadReminders() {
+  try { return JSON.parse(localStorage.getItem(REM_KEY) || '{}'); } catch { return {}; }
+}
+function saveReminders(obj) { localStorage.setItem(REM_KEY, JSON.stringify(obj)); }
+function dateKey(y, m, d) { return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
+function getRemindersForDate(y, m, d) { const rems = loadReminders(); return rems[dateKey(y,m,d)] || []; }
+function saveRemindersForDate(y, m, d, arr) {
+  const rems = loadReminders(); rems[dateKey(y,m,d)] = arr; saveReminders(rems);
+}
+function addReminder(y, m, d, text, time, notif) {
+  const arr = getRemindersForDate(y, m, d);
+  arr.push({ id: Date.now(), text, time, notif, done: false });
+  saveRemindersForDate(y, m, d, arr);
+  updateRemBadge();
+}
+function deleteReminder(y, m, d, id) {
+  let arr = getRemindersForDate(y, m, d).filter(r => r.id !== id);
+  saveRemindersForDate(y, m, d, arr);
+  updateRemBadge();
+}
+function toggleDone(y, m, d, id) {
+  let arr = getRemindersForDate(y, m, d);
+  arr = arr.map(r => r.id===id ? {...r, done: !r.done} : r);
+  saveRemindersForDate(y, m, d, arr);
+}
+function updateRemBadge() {
+  const rems = loadReminders();
+  let count = 0;
+  Object.values(rems).forEach(arr => { count += arr.filter(r => !r.done).length; });
+  const badge = document.getElementById('remBadge');
+  if (count > 0) { badge.style.display='inline'; badge.textContent = count; }
+  else badge.style.display='none';
+}
+
+// ═══════════════════════════════════════════════════
+// BROWSER NOTIFICATIONS
+// ═══════════════════════════════════════════════════
+function requestNotifPermission(cb) {
+  if (!('Notification' in window)) { cb(false); return; }
+  if (Notification.permission === 'granted') { cb(true); return; }
+  Notification.requestPermission().then(p => cb(p === 'granted'));
+}
+function scheduleNotification(y, m, d, text, time) {
+  if (!time) return;
+  const [hh, mm] = time.split(':').map(Number);
+  const fireAt = new Date(y, m, d, hh, mm, 0).getTime();
+  const now = Date.now();
+  const delay = fireAt - now;
+  if (delay <= 0) return;
+  setTimeout(() => {
+    fireAlarm(text, y, m, d);
+    if (Notification.permission === 'granted') {
+      new Notification('📅 പഞ്ചാംഗം Reminder', { body: text, icon: '' });
+    }
+  }, delay);
+}
+
+// ═══════════════════════════════════════════════════
+// ALARM UI
+// ═══════════════════════════════════════════════════
+function fireAlarm(text, y, m, d) {
+  const overlay = document.createElement('div');
+  overlay.className = 'alarm-overlay';
+  overlay.innerHTML = `
+    <div class="alarm-box">
+      <div class="alarm-icon">🔔</div>
+      <div class="alarm-title">Reminder!</div>
+      <div class="alarm-text"><strong>${GREG_MONTHS_ML[m]} ${d}, ${y}</strong><br>${text}</div>
+      <button class="alarm-dismiss" onclick="this.closest('.alarm-overlay').remove()">ശരി, കണ്ടു</button>
+    </div>`;
+  document.body.appendChild(overlay);
+  // beep
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    for (let i = 0; i < 3; i++) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = 880; gain.gain.value = 0.3;
+      osc.start(ctx.currentTime + i*0.4);
+      osc.stop(ctx.currentTime + i*0.4 + 0.25);
+    }
+  } catch(e) {}
+}
+
+function showToast(msg) {
+  const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2800);
+}
+
+// ═══════════════════════════════════════════════════
+// CALENDAR STATE
+// ═══════════════════════════════════════════════════
+const today = new Date();
+let viewYear = today.getFullYear(), viewMonth = today.getMonth();
+let expandedKey = null; // currently expanded date key
+
+// ═══════════════════════════════════════════════════
+// RENDER CALENDAR
+// ═══════════════════════════════════════════════════
+function renderCalendar() {
+  const grid = document.getElementById('calGrid');
+  document.getElementById('monthYearDisplay').textContent = `${GREG_MONTHS_ML[viewMonth]} ${viewYear}`;
+  grid.innerHTML = '';
+
+  const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+  const daysInMonth = new Date(viewYear, viewMonth+1, 0).getDate();
+  const daysInPrev = new Date(viewYear, viewMonth, 0).getDate();
+
+  const cells = [];
+  for (let i=firstDay-1; i>=0; i--) cells.push({day: daysInPrev-i, month: viewMonth-1, year: viewYear, other: true});
+  for (let d=1; d<=daysInMonth; d++) cells.push({day: d, month: viewMonth, year: viewYear, other: false});
+  while (cells.length < 42) cells.push({day: cells.length-firstDay-daysInMonth+1+1, month: viewMonth+1, year: viewYear, other: true});
+
+  // Group cells into rows of 7
+  const rows = [];
+  for (let i=0; i<cells.length; i+=7) rows.push(cells.slice(i,i+7));
+
+  rows.forEach(row => {
+    // Render 7 day cells
+    row.forEach(cell => {
+      const tmp = new Date(cell.year, cell.month, cell.day);
+      const y = tmp.getFullYear(), m = tmp.getMonth(), d = tmp.getDate();
+      const key = dateKey(y, m, d);
+      const isToday = d===today.getDate() && m===today.getMonth() && y===today.getFullYear();
+      const isExpanded = expandedKey === key;
+      const reminders = getRemindersForDate(y, m, d);
+      const hasRem = reminders.length > 0;
+
+      let data = null;
+      try { if (!cell.other) data = computeDayData(y, m, d); } catch(e) {}
+
+      const div = document.createElement('div');
+      div.className = 'day-cell' +
+        (cell.other ? ' other-month' : '') +
+        (tmp.getDay()===0 ? ' sunday' : '') +
+        (tmp.getDay()===6 ? ' saturday' : '') +
+        (isToday ? ' today' : '') +
+        (isExpanded ? ' expanded' : '') +
+        (hasRem ? ' has-reminder' : '');
+
+      // Gregorian date
+      const gDiv = document.createElement('div');
+      gDiv.className = 'greg-date';
+      gDiv.textContent = d;
+      div.appendChild(gDiv);
+
+      if (data) {
+        // Malayalam date only (no month name — saves space)
+        const mlD = document.createElement('div');
+        mlD.className = 'ml-date-cell';
+        mlD.textContent = `${data.mlMonth} ${data.mlDate}`;
+        div.appendChild(mlD);
+
+        const nk = document.createElement('div');
+        nk.className = 'nak-cell';
+        nk.textContent = data.nakshatra;
+        div.appendChild(nk);
+
+        if (data.nakEnd !== 'നാളെ') {
+          const nt = document.createElement('div');
+          nt.className = 'nak-time-cell';
+          nt.textContent = `↓ ${data.nakEnd}`;
+          div.appendChild(nt);
+        }
+
+        const ti = document.createElement('div');
+        ti.className = 'tithi-cell';
+        ti.textContent = data.tithi;
+        div.appendChild(ti);
       }
+
+      if (!cell.other) {
+        div.addEventListener('click', () => {
+          expandedKey = (expandedKey === key) ? null : key;
+          renderCalendar();
+          if (expandedKey) {
+            setTimeout(() => {
+              const el = document.querySelector('.expand-row');
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 50);
+          }
+        });
+      }
+
+      grid.appendChild(div);
+    });
+
+    // Check if any cell in this row is expanded
+    const expandedInRow = row.find(cell => {
+      const tmp = new Date(cell.year, cell.month, cell.day);
+      return !cell.other && expandedKey === dateKey(tmp.getFullYear(), tmp.getMonth(), tmp.getDate());
+    });
+
+    if (expandedInRow) {
+      const tmp = new Date(expandedInRow.year, expandedInRow.month, expandedInRow.day);
+      const ey = tmp.getFullYear(), em = tmp.getMonth(), ed = tmp.getDate();
+      const edata = (() => { try { return computeDayData(ey, em, ed); } catch(e) { return null; } })();
+      const expandRow = document.createElement('div');
+      expandRow.className = 'expand-row';
+      expandRow.innerHTML = buildExpandHTML(ey, em, ed, edata);
+      grid.appendChild(expandRow);
+      attachExpandEvents(expandRow, ey, em, ed);
     }
+  });
 
-    const malDate = Math.floor((curTime - activeStart.getTime()) / 86400000) + 1;
-    const morningDate = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 30);
-    const moon = siderealMoon(morningDate);
-    const starIndex = Math.floor(degNorm(moon) / (360 / 27)) % 27;
+  updateRemBadge();
+}
 
-    return {
-      star: stars[starIndex],
-      malDate: malDate,
-      malMonth: malMonths[activeRashi],
-      kollavarsham: activeKollam
-    };
-  }
+function buildExpandHTML(y, m, d, data) {
+  const wd = WEEKDAYS_ML[new Date(y,m,d).getDay()];
+  const rems = getRemindersForDate(y, m, d);
+  const remListHTML = rems.length === 0
+    ? '<div style="font-size:12px;color:#AAA;padding:4px 0">Reminder ഒന്നും ഇല്ല</div>'
+    : rems.map(r => `
+      <div class="reminder-item${r.done?' done':''}" data-rid="${r.id}">
+        <input type="checkbox" class="rem-check" ${r.done?'checked':''} data-action="toggle" data-id="${r.id}">
+        <div class="rem-info">
+          <span class="rem-text">${escHtml(r.text)}</span>
+          ${r.time ? `<span class="rem-time-badge">${r.time}</span>` : ''}
+        </div>
+        <button class="rem-del" data-action="delete" data-id="${r.id}" title="Delete">🗑</button>
+      </div>`).join('');
 
-  function renderCalendar() {
-    const year = currDate.getFullYear();
-    const month = currDate.getMonth();
+  const panchaHTML = data ? `
+    <div class="pancha-grid">
+      <div class="pancha-item masam-i">
+        <div class="p-label">Malayalam Date</div>
+        <div class="p-val">${data.mlMonth} ${data.mlDate}</div>
+        <div class="p-sub">കൊ.വ. ${data.kollaVarsham}</div>
+      </div>
+      <div class="pancha-item tithi-i">
+        <div class="p-label">തിഥി</div>
+        <div class="p-val">${data.tithi}</div>
+        <div class="p-sub">${data.paksha}</div>
+      </div>
+      <div class="pancha-item nak">
+        <div class="p-label">നക്ഷത്രം</div>
+        <div class="p-val">${data.nakshatra}</div>
+        <div class="p-sub">${data.nakEnd!=='നാളെ'?`${data.nakEnd} വരെ → ${data.nextNakshatra}`:`നാളെ → ${data.nextNakshatra}`}</div>
+      </div>
+      <div class="pancha-item">
+        <div class="p-label">പക്ഷം</div>
+        <div class="p-val">${data.paksha}</div>
+        <div class="p-sub">Kolla Varsham ${data.kollaVarsham}</div>
+      </div>
+      <div class="pancha-item sun-i">
+        <div class="p-label">സൂര്യൻ (Nirayana)</div>
+        <div class="p-val">${data.sunNir}°</div>
+        <div class="p-sub">Lahiri Ayanamsa</div>
+      </div>
+      <div class="pancha-item moon-i">
+        <div class="p-label">ചന്ദ്രൻ (Nirayana)</div>
+        <div class="p-val">${data.moonNir}°</div>
+        <div class="p-sub">Moon longitude</div>
+      </div>
+    </div>` : '<div style="padding:12px 14px;color:#888">Data available for current dates only</div>';
 
-    updateDropdownValues();
+  return `
+    <div class="expand-header">
+      <h2>${GREG_MONTHS_ML[m]} ${d}, ${y} &nbsp;—&nbsp; ${wd}</h2>
+      <button class="expand-close" data-action="close">✕</button>
+    </div>
+    ${panchaHTML}
+    <div class="expand-divider"></div>
+    <div class="reminder-section">
+      <h3>🔔 Reminders</h3>
+      <div class="reminder-list" id="remList-${y}-${m}-${d}">${remListHTML}</div>
+      <div class="add-reminder-row">
+        <input type="text" class="rem-input" id="remText-${y}-${m}-${d}" placeholder="Reminder കുറിക്കുക..." maxlength="200">
+        <input type="time" class="rem-input rem-time-input" id="remTime-${y}-${m}-${d}">
+        <button class="rem-add-btn" data-action="add">+ ചേർക്കുക</button>
+      </div>
+      <div class="rem-notif-toggle">
+        <input type="checkbox" id="remNotif-${y}-${m}-${d}" checked>
+        <label for="remNotif-${y}-${m}-${d}">Browser notification അയക്കണം (സമയം set ചെയ്തിട്ടുണ്ടെങ്കിൽ)</label>
+      </div>
+    </div>`;
+}
 
-    const midInfo = getMalayalamInfo(new Date(year, month, 15));
-    document.getElementById('malMonthYear').innerText =
-      `കൊല്ലവർഷം ${midInfo.kollavarsham} ${midInfo.malMonth}`;
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-    const firstDay = new Date(year, month, 1).getDay();
-    const lastDate = new Date(year, month + 1, 0).getDate();
-    const grid = document.getElementById('calendarGrid');
-    const frag = document.createDocumentFragment();
-
-    const todayStr = localDateString(new Date());
-
-    for (let i = 0; i < firstDay; i++) {
-      const el = document.createElement('div');
-      el.className = 'day-cell other-month';
-      frag.appendChild(el);
-    }
-
-    const dates = [];
-    for (let day = 1; day <= lastDate; day++) {
-      const d = new Date(year, month, day);
-      const dStr = localDateString(d);
-      const malInfo = getMalayalamInfo(d);
-      const cell = document.createElement('div');
-
-      const bdays = getBirthdaysForDate(year, month + 1, day);
-      const isToday = dStr === todayStr ? 'today-cell' : '';
-      const isSel = dStr === selectedDateStr ? 'selected' : '';
-      const isBday = bdays.length > 0 ? 'bday-cell' : '';
-
-      cell.className = `day-cell ${isSel} ${isToday} ${isBday}`;
-      cell.id = `cell-${dStr}`;
-      
-      let bdayIconHtml = bdays.length > 0 ? `<span class="bday-icon">🎂</span>` : '';
-
-      cell.innerHTML = `
-        ${bdayIconHtml}
-        <div class="day-num">${day}</div>
-        <div class="mal-num">${malInfo.malDate}</div>
-        <div class="star-name">${malInfo.star}</div>
-        <span class="dot-badge" id="dot-${dStr}" style="display:none"></span>`;
-      cell.onclick = () => selectDate(dStr);
-
-      frag.appendChild(cell);
-      dates.push(dStr);
-    }
-
-    grid.replaceChildren(frag);
-    dates.forEach(checkDot);
-  }
-
-  function changeMonth(step) {
-    currDate = new Date(currDate.getFullYear(), currDate.getMonth() + step, 1);
+function attachExpandEvents(row, y, m, d) {
+  // Close button
+  row.querySelector('[data-action="close"]').addEventListener('click', (e) => {
+    e.stopPropagation();
+    expandedKey = null;
     renderCalendar();
-  }
+  });
 
-  function selectDate(dStr) {
-    selectedDateStr = dStr;
-    const d = dateFromString(dStr);
-    currDate = new Date(d.getFullYear(), d.getMonth(), 1);
-    renderCalendar();
-    loadDateData(dStr);
-  }
-
-  function loadDateData(dStr) {
-    const d = dateFromString(dStr);
-    const m = getMalayalamInfo(d);
-    document.getElementById('panchangamInfo').innerHTML = `
-      <strong>${d.toDateString()}</strong><br>
-      മലയാള തീയതി: <strong>${m.kollavarsham} ${m.malMonth} ${m.malDate}</strong> | 
-      നക്ഷത്രം: <strong>${m.star}</strong>
-    `;
-
-    const bdays = getBirthdaysForDate(d.getFullYear(), d.getMonth() + 1, d.getDate());
-    const bdayCont = document.getElementById('permanentBdayList');
-    if(bdays.length > 0) {
-      bdayCont.innerHTML = bdays.map(b => `<div class="bday-item">${b.text}</div>`).join('');
-    } else {
-      bdayCont.innerHTML = '';
-    }
-
-    const tx = db.transaction("entries", "readonly");
-    const req = tx.objectStore("entries").get(dStr);
-    req.onsuccess = () => {
-      const data = req.result || { notes: '', reminders: [], files: [] };
-      document.getElementById('noteInput').value = data.notes || '';
-      renderReminders(data.reminders || []);
-      renderFiles(data.files || []);
-    };
-  }
-
-  function getEntry(cb) {
-    const tx = db.transaction("entries", "readwrite");
-    const store = tx.objectStore("entries");
-    const req = store.get(selectedDateStr);
-    req.onsuccess = () => {
-      let data = req.result || { date: selectedDateStr, notes: '', reminders: [], files: [] };
-      cb(data, store);
-    };
-  }
-
-  function saveNote() {
-    getEntry((data, store) => {
-      data.notes = document.getElementById('noteInput').value;
-      store.put(data);
-      alert('Note saved!');
-      checkDot(selectedDateStr);
-    });
-  }
-
-  function addReminder() {
-    const txt = document.getElementById('remInput').value;
-    if (!txt) return;
-    getEntry((data, store) => {
-      data.reminders.push(txt);
-      store.put(data);
-      document.getElementById('remInput').value = '';
-      renderReminders(data.reminders);
-      checkDot(selectedDateStr);
-    });
-  }
-
-  function deleteReminder(idx) {
-    getEntry((data, store) => {
-      data.reminders.splice(idx, 1);
-      store.put(data);
-      renderReminders(data.reminders);
-      checkDot(selectedDateStr);
-    });
-  }
-
-  function uploadFile() {
-    const file = document.getElementById('fileInput').files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      getEntry((data, store) => {
-        data.files.push({ name: file.name, data: reader.result });
-        store.put(data);
-        renderFiles(data.files);
-        checkDot(selectedDateStr);
+  // Add reminder
+  row.querySelector('[data-action="add"]').addEventListener('click', () => {
+    const textEl = document.getElementById(`remText-${y}-${m}-${d}`);
+    const timeEl = document.getElementById(`remTime-${y}-${m}-${d}`);
+    const notifEl = document.getElementById(`remNotif-${y}-${m}-${d}`);
+    const text = textEl.value.trim();
+    if (!text) { textEl.focus(); return; }
+    const time = timeEl.value || '';
+    const notif = notifEl.checked;
+    if (notif && time) {
+      requestNotifPermission(granted => {
+        addReminder(y, m, d, text, time, granted);
+        if (granted) scheduleNotification(y, m, d, text, time);
+        showToast('✅ Reminder ചേർത്തു' + (granted ? ' (notification on)' : ''));
+        renderCalendar();
       });
-    };
-    reader.readAsDataURL(file);
-  }
-
-  function deleteFile(idx) {
-    getEntry((data, store) => {
-      data.files.splice(idx, 1);
-      store.put(data);
-      renderFiles(data.files);
-      checkDot(selectedDateStr);
-    });
-  }
-
-  function renderReminders(list) {
-    const cont = document.getElementById('reminderList');
-    cont.innerHTML = list.map((r, i) => `
-      <div class="rem-item">
-        <span>📌 ${r}</span>
-        <button class="del-btn" onclick="deleteReminder(${i})">✕</button>
-      </div>
-    `).join('');
-  }
-
-  function renderFiles(list) {
-    const cont = document.getElementById('fileList');
-    cont.innerHTML = list.map((f, i) => `
-      <div class="file-chip">
-        <a href="${f.data}" download="${f.name}">📄 ${f.name}</a>
-        <button class="del-btn" onclick="deleteFile(${i})">✕</button>
-      </div>
-    `).join('');
-  }
-
-  function checkDot(dStr) {
-    if (!db) return;
-    const d = dateFromString(dStr);
-    const bdays = getBirthdaysForDate(d.getFullYear(), d.getMonth() + 1, d.getDate());
-    
-    const tx = db.transaction("entries", "readonly");
-    const req = tx.objectStore("entries").get(dStr);
-    req.onsuccess = () => {
-      const data = req.result;
-      const dot = document.getElementById(`dot-${dStr}`);
-      if (dot) {
-        const hasUserContent = data && (data.notes || (data.reminders && data.reminders.length) || (data.files && data.files.length));
-        dot.style.display = (hasUserContent || bdays.length > 0) ? 'block' : 'none';
-      }
-    };
-  }
-
-  async function exportCurrentMonthICS() {
-    const year = currDate.getFullYear();
-    const month = currDate.getMonth();
-    const lastDate = new Date(year, month + 1, 0).getDate();
-
-    const allEntries = await getAllEntries();
-    const entryMap = {};
-    allEntries.forEach(e => entryMap[e.date] = e);
-
-    let icsContent = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Malayalam Calendar PWA//EN\nCALSCALE:GREGORIAN\nMETHOD:PUBLISH\n";
-
-    for (let day = 1; day <= lastDate; day++) {
-      const d = new Date(year, month, day);
-      const dStr = localDateString(d);
-      const mInfo = getMalayalamInfo(d);
-      const bdays = getBirthdaysForDate(year, month + 1, day);
-      
-      let desc = `കൊല്ലവർഷം: ${mInfo.kollavarsham} ${mInfo.malMonth} ${mInfo.malDate}\\nനക്ഷത്രം: ${mInfo.star}`;
-      if(bdays.length > 0) {
-        desc += `\\n🎂 ജന്മദിനങ്ങൾ: ${bdays.map(b => b.name + ' (' + b.birthYear + ')').join(', ')}`;
-      }
-
-      const entry = entryMap[dStr];
-      if (entry?.notes) desc += `\\nകുറിപ്പ്: ${entry.notes.replace(/\n/g, '\\n')}`;
-      if (entry?.reminders?.length) desc += `\\nറീമൈൻഡറുകൾ: ${entry.reminders.join(', ')}`;
-
-      const nextDate = new Date(year, month, day + 1);
-      const isoStart = dateICS(d);
-      const isoEnd = dateICS(nextDate);
-
-      let summary = `${mInfo.malMonth} ${mInfo.malDate} - ${mInfo.star}`;
-      if (bdays.length > 0) {
-        summary = `🎂 ${bdays.map(b => b.name).join(', ')} Birthday | ` + summary;
-      }
-
-      icsContent += "BEGIN:VEVENT\n";
-      icsContent += `UID:malcal-${dStr}@pwa.local\n`;
-      icsContent += `DTSTART;VALUE=DATE:${isoStart}\n`;
-      icsContent += `DTEND;VALUE=DATE:${isoEnd}\n`;
-      icsContent += `SUMMARY:${icsEscape(summary)}\n`;
-      icsContent += `DESCRIPTION:${icsEscape(desc)}\n`;
-      icsContent += "END:VEVENT\n";
+    } else {
+      addReminder(y, m, d, text, time, false);
+      showToast('✅ Reminder ചേർത്തു');
+      renderCalendar();
     }
+  });
 
-    icsContent += "END:VCALENDAR";
-    downloadICSFile(icsContent, `Malayalam_Calendar_${year}_${month + 1}.ics`);
-  }
+  // Enter key in text input
+  const textEl = document.getElementById(`remText-${y}-${m}-${d}`);
+  if (textEl) textEl.addEventListener('keydown', e => { if (e.key==='Enter') row.querySelector('[data-action="add"]').click(); });
 
-  async function exportCurrentYearICS() {
-    const year = currDate.getFullYear();
-    const allEntries = await getAllEntries();
-    const entryMap = {};
-    allEntries.forEach(e => entryMap[e.date] = e);
-
-    let icsContent = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Malayalam Calendar Full Year//EN\nCALSCALE:GREGORIAN\nMETHOD:PUBLISH\n";
-
-    for (let m = 0; m < 12; m++) {
-      const lastDay = new Date(year, m + 1, 0).getDate();
-      for (let d = 1; d <= lastDay; d++) {
-        const date = new Date(year, m, d);
-        const dStr = localDateString(date);
-        const mInfo = getMalayalamInfo(date);
-        const bdays = getBirthdaysForDate(year, m + 1, d);
-        const nextDate = new Date(year, m, d + 1);
-
-        let desc = `കൊല്ലവർഷം: ${mInfo.kollavarsham} ${mInfo.malMonth} ${mInfo.malDate}\\nനക്ഷത്രം: ${mInfo.star}`;
-        if(bdays.length > 0) {
-          desc += `\\n🎂 ജന്മദിനങ്ങൾ: ${bdays.map(b => b.name + ' (' + b.birthYear + ')').join(', ')}`;
-        }
-
-        const entry = entryMap[dStr];
-        if (entry?.notes) desc += `\\nകുറിപ്പ്: ${entry.notes.replace(/\n/g, '\\n')}`;
-        if (entry?.reminders?.length) desc += `\\nറീമൈൻഡറുകൾ: ${entry.reminders.join(', ')}`;
-
-        let summary = `${mInfo.malMonth} ${mInfo.malDate} - ${mInfo.star}`;
-        if (bdays.length > 0) {
-          summary = `🎂 ${bdays.map(b => b.name).join(', ')} Birthday | ` + summary;
-        }
-
-        icsContent += "BEGIN:VEVENT\n";
-        icsContent += `UID:malcal-${dStr}@pwa.local\n`;
-        icsContent += `DTSTART;VALUE=DATE:${dateICS(date)}\n`;
-        icsContent += `DTEND;VALUE=DATE:${dateICS(nextDate)}\n`;
-        icsContent += `SUMMARY:${icsEscape(summary)}\n`;
-        icsContent += `DESCRIPTION:${icsEscape(desc)}\n`;
-        icsContent += "END:VEVENT\n";
+  // Toggle done / delete
+  row.querySelectorAll('[data-action="toggle"]').forEach(el => {
+    el.addEventListener('change', () => {
+      toggleDone(y, m, d, Number(el.dataset.id));
+      updateRemBadge();
+      // Refresh just the reminder list
+      const listEl = document.getElementById(`remList-${y}-${m}-${d}`);
+      if (listEl) {
+        const rems = getRemindersForDate(y, m, d);
+        listEl.innerHTML = rems.length===0
+          ? '<div style="font-size:12px;color:#AAA;padding:4px 0">Reminder ഒന്നും ഇല്ല</div>'
+          : rems.map(r=>`
+            <div class="reminder-item${r.done?' done':''}">
+              <input type="checkbox" class="rem-check" ${r.done?'checked':''} data-action="toggle2" data-id="${r.id}">
+              <div class="rem-info">
+                <span class="rem-text">${escHtml(r.text)}</span>
+                ${r.time?`<span class="rem-time-badge">${r.time}`+'</span>':''}
+              </div>
+              <button class="rem-del" data-action="delete2" data-id="${r.id}">🗑</button>
+            </div>`).join('');
+        listEl.querySelectorAll('[data-action="toggle2"]').forEach(e2=>e2.addEventListener('change',()=>{toggleDone(y,m,d,Number(e2.dataset.id));updateRemBadge();}));
+        listEl.querySelectorAll('[data-action="delete2"]').forEach(e2=>e2.addEventListener('click',()=>{deleteReminder(y,m,d,Number(e2.dataset.id));renderCalendar();}));
       }
-    }
-
-    icsContent += "END:VCALENDAR";
-    downloadICSFile(icsContent, `Malayalam_Calendar_FullYear_${year}.ics`);
-  }
-
-  function getAllEntries() {
-    return new Promise((resolve, reject) => {
-      const req = db.transaction("entries", "readonly").objectStore("entries").getAll();
-      req.onsuccess = () => resolve(req.result || []);
-      req.onerror = () => reject(req.error);
     });
-  }
+  });
+  row.querySelectorAll('[data-action="delete"]').forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      deleteReminder(y, m, d, Number(el.dataset.id));
+      showToast('🗑 Reminder delete ചെയ്തു');
+      renderCalendar();
+    });
+  });
+}
 
-  function dateICS(d) {
-    return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+// ═══════════════════════════════════════════════════
+// ALL REMINDERS MODAL
+// ═══════════════════════════════════════════════════
+function openAllReminders() {
+  const body = document.getElementById('allRemModalBody');
+  const rems = loadReminders();
+  const keys = Object.keys(rems).filter(k => rems[k].length > 0).sort();
+  if (keys.length === 0) {
+    body.innerHTML = '<div class="modal-empty">🔔 Reminder ഒന്നും ഇല്ല</div>';
+  } else {
+    body.innerHTML = keys.map(k => {
+      const [ky, km, kd] = k.split('-').map(Number);
+      const tmp = new Date(ky, km-1, kd);
+      const label = `${GREG_MONTHS_ML[km-1]} ${kd}, ${ky} — ${WEEKDAYS_ML[tmp.getDay()]}`;
+      const items = rems[k].map(r => `
+        <div class="reminder-item${r.done?' done':''}">
+          <div class="rem-info">
+            <span class="rem-text">${escHtml(r.text)}</span>
+            ${r.time?`<span class="rem-time-badge">${r.time}</span>`:''}
+          </div>
+        </div>`).join('');
+      return `<div class="modal-date-group"><div class="modal-date-label">${label}</div>${items}</div>`;
+    }).join('');
   }
+  document.getElementById('allRemModal').style.display = 'flex';
+}
+document.getElementById('allRemindersBtn').addEventListener('click', openAllReminders);
+document.getElementById('allRemModalClose').addEventListener('click', () => {
+  document.getElementById('allRemModal').style.display = 'none';
+});
+document.getElementById('allRemModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('allRemModal')) document.getElementById('allRemModal').style.display='none';
+});
 
-  function icsEscape(s) {
-    return String(s).replace(/\\/g, '\\\\').replace(/\r?\n/g, '\\n').replace(/;/g, '\\;').replace(/,/g, '\\,');
-  }
+// ═══════════════════════════════════════════════════
+// NAV CONTROLS
+// ═══════════════════════════════════════════════════
+document.getElementById('prevMonth').addEventListener('click', () => {
+  viewMonth--; if (viewMonth<0){viewMonth=11;viewYear--;} expandedKey=null; renderCalendar();
+});
+document.getElementById('nextMonth').addEventListener('click', () => {
+  viewMonth++; if (viewMonth>11){viewMonth=0;viewYear++;} expandedKey=null; renderCalendar();
+});
+document.getElementById('todayBtn').addEventListener('click', () => {
+  viewYear=today.getFullYear(); viewMonth=today.getMonth();
+  expandedKey=dateKey(today.getFullYear(),today.getMonth(),today.getDate());
+  renderCalendar();
+  setTimeout(()=>{const el=document.querySelector('.expand-row');if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'});},60);
+});
 
-  function downloadICSFile(content, filename) {
-    const blob = new Blob([content], { type: 'text/calendar;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = window.URL.createObjectURL(blob);
-    link.setAttribute('download', filename);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }
+// ═══════════════════════════════════════════════════
+// RESCHEDULE SAVED REMINDERS ON LOAD
+// ═══════════════════════════════════════════════════
+function rescheduleAll() {
+  const rems = loadReminders();
+  const now = Date.now();
+  Object.entries(rems).forEach(([k, arr]) => {
+    const [ky,km,kd] = k.split('-').map(Number);
+    arr.forEach(r => {
+      if (!r.done && r.time && r.notif) {
+        const fireAt = new Date(ky, km-1, kd, ...r.time.split(':').map(Number), 0).getTime();
+        if (fireAt > now) scheduleNotification(ky, km-1, kd, r.text, r.time);
+      }
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════
+rescheduleAll();
+// Auto-expand today
+expandedKey = dateKey(today.getFullYear(), today.getMonth(), today.getDate());
+renderCalendar();
+setTimeout(()=>{const el=document.querySelector('.expand-row');if(el)el.scrollIntoView({behavior:'smooth',block:'nearest'});},80);
 </script>
 </body>
 </html>
