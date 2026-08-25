@@ -1,0 +1,6 @@
+{
+  "name": "Malayalam Calendar",
+  "description": "Malayalam Panchangam Calendar with Nakshatra, Tithi, Kolla Varsham, and Reminders",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

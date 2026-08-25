@@ -1,0 +1,27 @@
+package com.example.malayalamcalendar.ui.theme
+
+import androidx.compose.ui.graphics.Color
+
+val GoldPrimary = Color(0xFFC8952A)
+val GoldLight = Color(0xFFF0C96B)
+val GoldPale = Color(0xFFFDF3DC)
+val DeepBrown = Color(0xFF1A0F00)
+val DeepBrownDark = Color(0xFF120A00)
+val Ink = Color(0xFF2C1A00)
+val Rust = Color(0xFF8B3A0F)
+val RustLight = Color(0xFFA54B1A)
+val Cream = Color(0xFFFFFBF0)
+val CreamDarker = Color(0xFFF8F2E4)
+val Saffron = Color(0xFFFF9933)
+val GreenDark = Color(0xFF1B4332)
+val GreenMid = Color(0xFF2D6A4F)
+val PurpleTithi = Color(0xFF5533AA)
+val MoonBlue = Color(0xFF336699)
+val SunOrange = Color(0xFFCC6600)
+val SundayRed = Color(0xFFCC3300)
+val SaturdayBlue = Color(0xFF0055AA)
+val ReminderBlue = Color(0xFF1A3A5C)
+val ReminderLight = Color(0xFFE8F0F8)
+val BorderLight = Color(0xFFE8DCC8)
+val GoldTextDark = Color(0xFF9E6B08)
+val GoldTextMedium = Color(0xFFB37400)

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.MalayalamCalendar" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@color/deep_brown</item>
+        <item name="android:navigationBarColor">@color/deep_brown</item>
+    </style>
+</resources>

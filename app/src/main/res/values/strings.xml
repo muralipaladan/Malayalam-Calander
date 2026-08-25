@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">Malayalam Calendar</string>
+    <string name="app_title_ml">മലയാള പഞ്ചാംഗം കലണ്ടർ</string>
+    <string name="app_subtitle_ml">Drik Ganitha · Lahiri Ayanamsa · Nakshatra · Tithi</string>
+    <string name="prev_month">മുൻ</string>
+    <string name="next_month">അടുത്ത</string>
+    <string name="today">ഇന്ന്</string>
+    <string name="reminders">Reminders</string>
+    <string name="all_reminders">എല്ലാ Reminders-ഉം</string>
+    <string name="add_reminder">ചേർക്കുക</string>
+    <string name="reminder_placeholder">Reminder കുറിക്കുക…</string>
+    <string name="notification_channel_name">Panchangam Reminders</string>
+    <string name="notification_channel_desc">Daily panchangam and custom reminders</string>
+</resources>

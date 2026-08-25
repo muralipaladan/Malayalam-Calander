@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="gold_primary">#C8952A</color>
+    <color name="gold_light">#F0C96B</color>
+    <color name="deep_brown">#1A0F00</color>
+    <color name="cream">#FFFBF0</color>
+    <color name="rust">#8B3A0F</color>
+    <color name="green_dark">#1B4332</color>
+</resources>
